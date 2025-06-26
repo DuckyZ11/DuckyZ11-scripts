@@ -1,0 +1,184 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+-- ตัวแปรตำแหน่งดึง
+local offsetX, offsetY, offsetZ = 0, 0, -7
+local dashOn, pullOn = false, false
+
+-- GUI หลัก
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "AutoDashUI"
+screenGui.ResetOnSpawn = false
+
+-- กลุ่มที่ซ่อนได้
+local controlGroup = Instance.new("Frame", screenGui)
+controlGroup.BackgroundTransparency = 1
+controlGroup.Size = UDim2.new(1, 0, 1, 0)
+
+-- ปุ่ม Toggle UI (มุมซ้ายบน)
+local toggleButton = Instance.new("TextButton", screenGui)
+toggleButton.Size = UDim2.new(0, 40, 0, 40)
+toggleButton.Position = UDim2.new(0, 5, 0, 5)
+toggleButton.Text = "≡"
+toggleButton.Font = Enum.Font.GothamBlack
+toggleButton.TextSize = 20
+toggleButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+toggleButton.TextColor3 = Color3.new(1, 1, 1)
+
+-- สร้างปุ่มทั่วไป
+local function createButton(text, pos, color, parent)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(0, 170, 0, 45)
+    btn.Position = pos
+    btn.BackgroundColor3 = color
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 20
+    btn.Text = text
+    return btn
+end
+
+-- ปุ่ม Auto Dash
+local btnDash = createButton("Auto Dash: OFF", UDim2.new(0, 20, 0, 60), Color3.fromRGB(30, 144, 255), controlGroup)
+
+-- ปุ่ม Pull Players
+local btnPull = createButton("Pull Players: OFF", UDim2.new(0, 20, 0, 110), Color3.fromRGB(255, 165, 0), controlGroup)
+
+-- ปุ่มลูกศร (ควบคุมตำแหน่ง X/Y/Z)
+local function createArrow(name, pos, symbol, onClick)
+    local btn = Instance.new("TextButton", controlGroup)
+    btn.Size = UDim2.new(0, 30, 0, 30)
+    btn.Position = pos
+    btn.Text = symbol
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 24
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.Name = name
+    btn.MouseButton1Click:Connect(onClick)
+end
+
+local baseX, baseY = 210, 180
+createArrow("Up",    UDim2.new(0, baseX + 30, 0, baseY),       "↑", function() offsetY += 1 end)
+createArrow("Left",  UDim2.new(0, baseX,       0, baseY + 30), "←", function() offsetX -= 1 end)
+createArrow("Right", UDim2.new(0, baseX + 60,  0, baseY + 30), "→", function() offsetX += 1 end)
+createArrow("Down",  UDim2.new(0, baseX + 30,  0, baseY + 60), "↓", function() offsetY -= 1 end)
+createArrow("+Z",    UDim2.new(0, baseX + 100, 0, baseY + 10), "+", function() offsetZ -= 1 end)
+createArrow("-Z",    UDim2.new(0, baseX + 100, 0, baseY + 50), "-", function() offsetZ += 1 end)
+
+-- Toggle ซ่อน/แสดง
+local visible = true
+toggleButton.MouseButton1Click:Connect(function()
+    visible = not visible
+    controlGroup.Visible = visible
+end)
+
+-- ฟังก์ชัน Auto Dash
+local function autoDash()
+    local char = player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+    local req = char and char:FindFirstChild("CharacterHandler") and char.CharacterHandler:FindFirstChild("Requests")
+    if not (char and hrp and humanoid and req) then return end
+
+    local dash = req:FindFirstChild("DashAttack")
+    if not dash then return end
+
+    humanoid.PlatformStand = false
+    humanoid.AutoRotate = true
+
+    -- CancelRagdoll
+    game:GetService("Players").LocalPlayer.Character.CharacterHandler.Requests.CancelRagdoll:FireServer()
+    task.wait(0.02)
+    dash:FireServer()
+
+    local bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(1e5, 0, 1e5)
+    bv.Velocity = hrp.CFrame.LookVector * 60
+    bv.Parent = hrp
+    task.delay(0.15, function()
+        if bv and bv.Parent then bv:Destroy() end
+    end)
+end
+
+-- ฟังก์ชันดึงผู้เล่น
+local function lockPlayerToYou(targetChar)
+    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return end
+
+    task.spawn(function()
+        while pullOn and targetHRP.Parent do
+            local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+            if not myHRP then break end
+            targetHRP.CFrame = myHRP.CFrame * CFrame.new(offsetX, offsetY, offsetZ)
+            task.wait()
+        end
+    end)
+end
+
+local function pullPlayers()
+    for _, pl in ipairs(Players:GetPlayers()) do
+        if pl ~= player and pl.Character then
+            lockPlayerToYou(pl.Character)
+        end
+    end
+end
+
+-- ปุ่ม Dash
+btnDash.MouseButton1Click:Connect(function()
+    dashOn = not dashOn
+    btnDash.Text = dashOn and "Auto Dash: ON" or "Auto Dash: OFF"
+    btnDash.BackgroundColor3 = dashOn and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(30, 144, 255)
+
+    if dashOn then
+        task.spawn(function()
+            while dashOn do
+                autoDash()
+                task.wait(0.1)
+            end
+        end)
+    end
+end)
+
+-- ปุ่ม Pull
+btnPull.MouseButton1Click:Connect(function()
+    pullOn = not pullOn
+    btnPull.Text = pullOn and "Pull Players: ON" or "Pull Players: OFF"
+    btnPull.BackgroundColor3 = pullOn and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(255, 165, 0)
+
+    if pullOn then
+        task.spawn(function()
+            while pullOn do
+                pullPlayers()
+                task.wait(1)
+            end
+        end)
+    end
+end)
+
+-- NoStun เสริม
+RunService.Stepped:Connect(function()
+    if dashOn or pullOn then
+        local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.PlatformStand = false
+        end
+    end
+end)
+
+-- Anti-Kick
+pcall(function()
+    local mt = getrawmetatable(game)
+    local backup; backup = hookmetamethod(game, "__namecall", function(self, ...)
+        local method = getnamecallmethod()
+        if tostring(self) == "Kick" or method == "Kick" then return end
+        return backup(self, ...)
+    end)
+
+    for _, v in pairs(player:GetDescendants()) do
+        if v:IsA("LocalScript") and v.Name:lower():find("kick") then
+            v:Destroy()
+        end
+    end
+end)
