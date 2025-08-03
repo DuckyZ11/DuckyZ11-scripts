@@ -59,24 +59,7 @@ teleportsTab.newButton("Get Unit 7", "", function()
     teleportToPosition(Vector3.new(-995.53, 1365.56, -286.45), "Get Unit 7")
 end)
 
--- Auto Farm Tab
-
--- Auto Farm (วาปตำแหน่งทุก 120 วิ)
-local autoFarmEnabled = getgenv().AutoFarmEnabled or false
-autoFarmTab.newToggle("Auto Farm (Warp every 120s)", "วาปไปตำแหน่งทุก 120 วินาที", autoFarmEnabled, function(state)
-    autoFarmEnabled = state
-    getgenv().AutoFarmEnabled = state
-    if state then
-        task.spawn(function()
-            while getgenv().AutoFarmEnabled do
-                teleportToPosition(Vector3.new(-945.93, 1014.38, 170.06), "Auto Farm Location")
-                task.wait(120)
-            end
-        end)
-    end
-end)
-
--- Auto Farm Win (OP)
+-- Auto Farm Win (OP) Only
 getgenv().RemainingWins = getgenv().RemainingWins or 0
 getgenv().AlreadyQueued = getgenv().AlreadyQueued or false
 
@@ -91,6 +74,8 @@ autoFarmTab.newInput("Set Win Count", "กรอกจำนวนรอบท�
 end)
 
 local autoFarmWinEnabled = getgenv().AutoFarmWinEnabled or false
+local winsLabel = autoFarmTab.newLabel("Win เหลือ: " .. (getgenv().RemainingWins or 0))
+
 autoFarmTab.newToggle("Auto Farm Win (OP)", "วาปไป End แล้วรีเกมตามจำนวนที่ตั้ง", autoFarmWinEnabled, function(state)
     autoFarmWinEnabled = state
     getgenv().AutoFarmWinEnabled = state
@@ -123,17 +108,25 @@ autoFarmTab.newToggle("Auto Farm Win (OP)", "วาปไป End แล้วร
     end
 end)
 
--- หากรีเกมมาให้รันออโต้ต่อถ้ามีสถานะ
+-- อัปเดต label นับถอยหลัง Win แบบเรียลไทม์
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if winsLabel and winsLabel.SetText then
+            winsLabel:SetText("Win เหลือ: " .. (getgenv().RemainingWins or 0))
+        end
+        if not getgenv().AutoFarmWinEnabled then
+            break
+        end
+    end
+end)
+
+-- Resume Auto Farm Win after teleport/rejoin
 task.spawn(function()
     if getgenv().AutoFarmWinEnabled and getgenv().RemainingWins and getgenv().RemainingWins > 0 then
         print("Resuming Auto Farm Win (OP)... Win เหลือ: " .. getgenv().RemainingWins)
         autoFarmWinEnabled = true
         autoFarmTab.setToggle("Auto Farm Win (OP)", true)
-    end
-    if getgenv().AutoFarmEnabled then
-        print("Resuming Auto Farm (Warp every 120s)...")
-        autoFarmEnabled = true
-        autoFarmTab.setToggle("Auto Farm (Warp every 120s)", true)
     end
 end)
 
