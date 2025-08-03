@@ -21,90 +21,61 @@ local PlaceId = game.PlaceId
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
--- ใช้ shared เก็บสถานะข้ามรีเกม (สำหรับ Delta Executor)
+-- เก็บสถานะใน shared (สำหรับ Delta Executor)
 shared.AutoFarmWinData = shared.AutoFarmWinData or {
     RemainingWins = 0,
     AutoFarmWinEnabled = false
 }
 
-local function saveState()
-    shared.AutoFarmWinData.RemainingWins = getgenv().RemainingWins
-    shared.AutoFarmWinData.AutoFarmWinEnabled = getgenv().AutoFarmWinEnabled
-end
-
+-- โหลดสถานะจาก shared ไป getgenv()
 local function loadState()
     getgenv().RemainingWins = shared.AutoFarmWinData.RemainingWins or 0
     getgenv().AutoFarmWinEnabled = shared.AutoFarmWinData.AutoFarmWinEnabled or false
 end
 
-loadState()
-
-local winsLabel = autoFarmTab.newLabel("Win เหลือ: " .. getgenv().RemainingWins)
-
-local function teleportToPosition(pos, name)
-    if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        player.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
-        print("Teleported to " .. name)
-        return true
-    else
-        warn("ไม่พบ HumanoidRootPart")
-        return false
-    end
+-- บันทึกสถานะจาก getgenv() ไป shared
+local function saveState()
+    shared.AutoFarmWinData.RemainingWins = getgenv().RemainingWins
+    shared.AutoFarmWinData.AutoFarmWinEnabled = getgenv().AutoFarmWinEnabled
 end
 
--- TELEPORTS TAB ปุ่มวาปต่าง ๆ
-teleportsTab.newButton("End", "", function()
-    teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61), "End")
-end)
-teleportsTab.newButton("Safezone", "", function()
-    teleportToPosition(Vector3.new(-944.47, 1014.38, 55.65), "Safezone")
-end)
-teleportsTab.newButton("Get Unit 1", "", function()
-    teleportToPosition(Vector3.new(-1090.60, 1395.38, 298.34), "Get Unit 1")
-end)
-teleportsTab.newButton("Get Unit 2", "", function()
-    teleportToPosition(Vector3.new(-1318.05, 1240.66, -37.35), "Get Unit 2")
-end)
-teleportsTab.newButton("Get Unit 3", "", function()
-    teleportToPosition(Vector3.new(-941.67, 1263.38, -167.66), "Get Unit 3")
-end)
-teleportsTab.newButton("Get Unit 4", "", function()
-    teleportToPosition(Vector3.new(-1203.99, 1365.39, -90.20), "Get Unit 4")
-end)
-teleportsTab.newButton("Get Unit 5", "", function()
-    teleportToPosition(Vector3.new(-945.93, 1014.38, 170.06), "Get Unit 5")
-end)
-teleportsTab.newButton("Get Unit 6", "", function()
-    teleportToPosition(Vector3.new(-1186.58, 1240.68, 191.17), "Get Unit 6")
-end)
-teleportsTab.newButton("Get Unit 7", "", function()
-    teleportToPosition(Vector3.new(-995.53, 1365.56, -286.45), "Get Unit 7")
-end)
+loadState()
 
--- AUTO FARM WIN OP
+-- ฟังก์ชันวาปไป End รอโหลดตัวละครก่อนวาป
+local function teleportToEnd()
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        player.CharacterAdded:Wait()
+        repeat wait() until player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    end
+
+    player.Character.HumanoidRootPart.CFrame = CFrame.new(-645.96, 1505.44, 21.61)
+    print("วาปสำเร็จ")
+    return true
+end
+
+-- สร้าง label แสดง Win เหลือ
+local winsLabel = autoFarmTab.newLabel("Win เหลือ: " .. getgenv().RemainingWins)
+
+-- ฟังก์ชันเริ่ม Auto Farm Win
 local function startAutoFarmWin()
     task.spawn(function()
         while getgenv().AutoFarmWinEnabled and getgenv().RemainingWins > 0 do
-            local success = teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61), "End")
+            local success = teleportToEnd()
             if not success then
-                warn("ไม่สามารถวาปไป End ได้")
+                warn("วาปไป End ไม่สำเร็จ")
                 break
             end
 
-            print("รอ " .. (10) .. " วินาที ก่อนรีเกม")
-            wait(10) -- รอระบบทำงาน
+            print("รอ 10 วินาที ก่อนรีเกม")
+            wait(10)
 
-            -- รีเกมเอง
-            TeleportService:Teleport(PlaceId, player)
-
-            -- ลดจำนวน Win
             getgenv().RemainingWins = getgenv().RemainingWins - 1
             winsLabel:SetText("Win เหลือ: " .. getgenv().RemainingWins)
-            print("Win เหลือ: " .. getgenv().RemainingWins)
-
             saveState()
 
-            break -- ออกจากลูป เพราะรีเกมแล้วจะโหลดสคริปต์ใหม่
+            TeleportService:Teleport(PlaceId, player)
+
+            break -- ออกจากลูปเพราะรีเกม
         end
 
         if getgenv().RemainingWins <= 0 then
@@ -117,19 +88,20 @@ local function startAutoFarmWin()
     end)
 end
 
--- UI ตั้งจำนวน Win และ Toggle Auto Farm
+-- UI กรอกจำนวน Win
 autoFarmTab.newInput("ตั้งจำนวน Win", "กรอกจำนวนรอบที่จะฟาร์ม", tostring(getgenv().RemainingWins), function(text)
     local num = tonumber(text)
     if num and num > 0 then
         getgenv().RemainingWins = num
         winsLabel:SetText("Win เหลือ: " .. getgenv().RemainingWins)
-        print("ตั้งจำนวน Win: " .. num)
         saveState()
+        print("ตั้งจำนวน Win: " .. num)
     else
         warn("กรุณากรอกเลขมากกว่า 0")
     end
 end)
 
+-- UI Toggle เปิด/ปิด Auto Farm Win
 autoFarmTab.newToggle("Auto Farm Win (OP)", "เปิด/ปิด Auto Farm Win", getgenv().AutoFarmWinEnabled, function(state)
     getgenv().AutoFarmWinEnabled = state
     saveState()
@@ -146,12 +118,37 @@ autoFarmTab.newToggle("Auto Farm Win (OP)", "เปิด/ปิด Auto Farm Wi
     end
 end)
 
--- รันออโต้ตอนเริ่มเกมถ้าตั้ง AutoFarm ไว้
+-- เริ่ม Auto Farm Win อัตโนมัติถ้าตั้งไว้ก่อนหน้า
 if getgenv().AutoFarmWinEnabled and getgenv().RemainingWins > 0 then
     startAutoFarmWin()
 end
 
--- MISC TAB ตัวอย่างอื่นๆ
+-- MAIN TAB
+mainTab.newLabel("Soon")
+
+-- TELEPORTS TAB
+local function teleportToPosition(pos, name)
+    if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+        print("Teleported to "..name)
+        return true
+    else
+        warn("ไม่พบ HumanoidRootPart")
+        return false
+    end
+end
+
+teleportsTab.newButton("End", "", function() teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61), "End") end)
+teleportsTab.newButton("Safezone", "", function() teleportToPosition(Vector3.new(-944.47, 1014.38, 55.65), "Safezone") end)
+teleportsTab.newButton("Get Unit 1", "", function() teleportToPosition(Vector3.new(-1090.60, 1395.38, 298.34), "Get Unit 1") end)
+teleportsTab.newButton("Get Unit 2", "", function() teleportToPosition(Vector3.new(-1318.05, 1240.66, -37.35), "Get Unit 2") end)
+teleportsTab.newButton("Get Unit 3", "", function() teleportToPosition(Vector3.new(-941.67, 1263.38, -167.66), "Get Unit 3") end)
+teleportsTab.newButton("Get Unit 4", "", function() teleportToPosition(Vector3.new(-1203.99, 1365.39, -90.20), "Get Unit 4") end)
+teleportsTab.newButton("Get Unit 5", "", function() teleportToPosition(Vector3.new(-945.93, 1014.38, 170.06), "Get Unit 5") end)
+teleportsTab.newButton("Get Unit 6", "", function() teleportToPosition(Vector3.new(-1186.58, 1240.68, 191.17), "Get Unit 6") end)
+teleportsTab.newButton("Get Unit 7", "", function() teleportToPosition(Vector3.new(-995.53, 1365.56, -286.45), "Get Unit 7") end)
+
+-- MISC TAB
 miscTab.newButton("Kill Yourself", "", function()
     local h = player.Character and player.Character:FindFirstChild("Humanoid")
     if h then
@@ -237,9 +234,8 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- รีเซ็ต WalkSpeed และ NoClip เวลาตัวละคร Respawn
 player.CharacterAdded:Connect(function(char)
-    wait(1) -- รอโหลดตัวละคร
+    wait(1)
     updateWalkSpeed()
     if noclipConn then
         disableNoclip()
