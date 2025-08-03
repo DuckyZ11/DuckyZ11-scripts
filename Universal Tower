@@ -63,7 +63,18 @@ end)
 getgenv().RemainingWins = getgenv().RemainingWins or 0
 getgenv().AutoFarmRunning = getgenv().AutoFarmRunning or false
 
--- Input สำหรับกรอกจำนวนรอบ
+-- สร้าง label แสดงจำนวน Win เหลือ
+local remainingWinsLabel = autoFarmTab.newLabel("Win Remaining: " .. tostring(getgenv().RemainingWins))
+
+-- อัปเดต label ทุก 1 วิ
+task.spawn(function()
+    while true do
+        remainingWinsLabel:SetText("Win Remaining: " .. tostring(getgenv().RemainingWins))
+        task.wait(1)
+    end
+end)
+
+-- Input ใส่จำนวน Win
 autoFarmTab.newInput("ตั้งจำนวน Win", "กรอกจำนวนรอบที่ต้องฟาร์ม", function(text)
     local num = tonumber(text)
     if num and num > 0 then
@@ -74,7 +85,7 @@ autoFarmTab.newInput("ตั้งจำนวน Win", "กรอกจำน�
     end
 end)
 
--- Toggle เริ่มฟาร์ม
+-- Toggle เริ่ม/หยุด Auto Farm พร้อมจำสถานะ toggle
 autoFarmTab.newToggle("Auto Farm Win (OP)", "วาปไป End แล้วรีเกมตามจำนวน", getgenv().AutoFarmRunning, function(state)
     getgenv().AutoFarmRunning = state
     if state then
@@ -86,13 +97,17 @@ autoFarmTab.newToggle("Auto Farm Win (OP)", "วาปไป End แล้วร
                 getgenv().RemainingWins -= 1
                 print("Win เหลือ: " .. getgenv().RemainingWins)
 
-                -- Queue รันใหม่หลังรี
+                -- Queue รันใหม่หลังรีเกม
                 queue_on_teleport([[
                     loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower"))()
                 ]])
 
                 TeleportService:Teleport(PlaceId, player)
                 break
+            end
+            if getgenv().RemainingWins <= 0 then
+                print("ฟาร์มครบตามจำนวนแล้ว ✅")
+                getgenv().AutoFarmRunning = false
             end
         end)
     else
