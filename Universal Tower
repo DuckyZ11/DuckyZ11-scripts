@@ -4,7 +4,7 @@ local window = DrRayLibrary:Load("DrRay", "Default")
 task.defer(function()
     local mainFrame = window:FindFirstChild("MainFrame") or window:FindFirstChildWhichIsA("Frame")
     if mainFrame then
-        mainFrame.Size = UDim2.new(0.38, 0, 0.38, 0) -- ขนาด UI ประมาณ 38%
+        mainFrame.Size = UDim2.new(0.38, 0, 0.38, 0)
         mainFrame.Position = UDim2.new(0.31, 0, 0.31, 0)
     end
 end)
@@ -59,7 +59,7 @@ teleportsTab.newButton("Get Unit 7", "", function()
     teleportToPosition(Vector3.new(-995.53, 1365.56, -286.45), "Get Unit 7")
 end)
 
--- === AUTO FARM WIN OP ===
+-- AUTO FARM WIN OP
 getgenv().RemainingWins = getgenv().RemainingWins or 0
 getgenv().AutoFarmRunning = getgenv().AutoFarmRunning or false
 
@@ -76,9 +76,9 @@ autoFarmTab.newInput("ตั้งจำนวน Win", "กรอกจำน�
     local num = tonumber(text)
     if num and num > 0 then
         getgenv().RemainingWins = num
-        print("จะฟาร์มทั้งหมด: " .. num .. " win(s)")
+        print("ตั้งจำนวน Win ที่จะฟาร์ม: " .. num)
     else
-        warn("กรุณากรอกเลขมากกว่า 0")
+        warn("กรุณากรอกตัวเลขมากกว่า 0")
     end
 end)
 
@@ -101,31 +101,16 @@ autoFarmTab.newToggle("Auto Farm Win (OP)", "วาปไป End แล้วร
                 break
             end
             if getgenv().RemainingWins <= 0 then
-                print("ฟาร์มครบตามจำนวนแล้ว ✅")
+                print("ฟาร์มครบแล้ว")
                 getgenv().AutoFarmRunning = false
             end
         end)
     else
-        print("Auto Farm Win (OP) ปิดแล้ว")
+        print("ปิด Auto Farm Win (OP)")
     end
 end)
 
--- ฟาร์มธรรมดา 120 วิ
-local autoTeleportEnabled = false
-autoFarmTab.newToggle("Auto Teleport", "วาปไปตำแหน่งทุก 120 วินาที", false, function(state)
-    autoTeleportEnabled = state
-    if state then
-        task.spawn(function()
-            while autoTeleportEnabled do
-                teleportToPosition(endPosition, "Auto Farm Location")
-                task.wait(120)
-            end
-        end)
-    end
-end)
-
--- === MISC TAB ===
-
+-- MISC TAB
 miscTab.newButton("Kill Yourself", "", function()
     local h = player.Character and player.Character:FindFirstChild("Humanoid")
     if h then h.Health = 0 end
@@ -184,4 +169,4 @@ UserInputService.JumpRequest:Connect(function()
         local h = player.Character:FindFirstChildOfClass("Humanoid")
         if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
     end
-end)d
+end)
