@@ -34,22 +34,22 @@ local function teleportToEnd()
     print("วาปไป End เรียบร้อย")
 end
 
--- ฟังก์ชันเริ่ม Auto Farm วาป + รีเกมวนลูป
+-- ฟังก์ชันเริ่ม Auto Farm วาป + รีจอยวนลูป รอ 6 วิ
 local function startAutoFarm()
     if shared.AutoFarmRunning then return end
     shared.AutoFarmRunning = true
     task.spawn(function()
         while shared.AutoFarmRunning do
             teleportToEnd()
-            wait(10)
-            TeleportService:Teleport(PlaceId, player)
-            break -- ออกจากลูปเพราะรีเกม
+            wait(6) -- รอ 6 วิ เผื่อโหลดและรีจอย
+            TeleportService:TeleportToPlaceInstance(PlaceId, game.JobId, player)
+            wait(5) -- รอเสริมก่อนวนลูปใหม่เพื่อความเสถียร
         end
     end)
 end
 
--- UI toggle เปิด/ปิด Auto Farm (วาปไป End แล้วรีเกม)
-autoFarmTab.newToggle("Auto Farm Win (OP)", "เปิด/ปิด Auto Farm Win (วาปไป End แล้วรีเกม)", shared.AutoFarmRunning, function(state)
+-- UI toggle เปิด/ปิด Auto Farm Win (OP) วาปไป End แล้วรีจอยไม่หยุด
+autoFarmTab.newToggle("Auto Farm Win (OP)", "เปิด/ปิด Auto Farm Win (วาปไป End แล้วรีจอยไม่หยุด)", shared.AutoFarmRunning, function(state)
     shared.AutoFarmRunning = state
     if state then
         print("เริ่ม Auto Farm Win (OP)")
