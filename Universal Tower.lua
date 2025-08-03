@@ -20,11 +20,22 @@ local UserInputService = game:GetService("UserInputService")
 local TeleportService = game:GetService("TeleportService")
 local PlaceId = game.PlaceId
 
--- ฟังก์ชันวาป
+-- ฟังก์ชันวาปใหม่ ใช้ wait() รอโหลดตัวละครก่อน
 local function teleportToPosition(pos, name)
-    if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        player.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+    print("Teleport function called to:", name)
+    local character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local attempts = 0
+    while not hrp and attempts < 10 do
+        wait(0.5)
+        hrp = character:FindFirstChild("HumanoidRootPart")
+        attempts = attempts + 1
+    end
+    if hrp then
+        hrp.CFrame = CFrame.new(pos)
         print("Teleported to "..name)
+    else
+        print("HumanoidRootPart not found, teleport failed.")
     end
 end
 
@@ -60,7 +71,7 @@ teleportsTab.newButton("Get Unit 7", "", function()
     teleportToPosition(Vector3.new(-995.53, 1365.56, -286.45), "Get Unit 7")
 end)
 
--- Auto Farm Win (OP) Only
+-- Auto Farm Win (OP)
 getgenv().RemainingWins = getgenv().RemainingWins or 0
 getgenv().AlreadyQueued = getgenv().AlreadyQueued or false
 
@@ -96,7 +107,7 @@ autoFarmTab.newToggle("Auto Farm Win (OP)", "วาปไป End แล้วร
                 end
                 teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61), "End")
                 print("วาปไป End")
-                task.wait(7) -- รอให้เกมรับ win
+                wait(15) -- รอ 15 วินาทีให้เกมรับ win
 
                 if not getgenv().AlreadyQueued then
                     getgenv().AlreadyQueued = true
@@ -108,7 +119,7 @@ autoFarmTab.newToggle("Auto Farm Win (OP)", "วาปไป End แล้วร
                 getgenv().RemainingWins -= 1
                 print("Win เหลือ: " .. getgenv().RemainingWins)
                 TeleportService:Teleport(PlaceId, player)
-                task.wait(99999) -- รอรีเกม
+                wait(99999) -- รอรีเกม
             end
         end)
     else
@@ -119,7 +130,7 @@ end)
 -- อัปเดต label นับถอยหลัง Win แบบเรียลไทม์
 task.spawn(function()
     while true do
-        task.wait(1)
+        wait(1)
         if winsLabel and winsLabel.SetText then
             winsLabel:SetText("Win เหลือ: " .. (getgenv().RemainingWins or 0))
         end
