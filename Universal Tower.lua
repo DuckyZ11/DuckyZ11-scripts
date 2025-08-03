@@ -2,7 +2,6 @@
 local DrRayLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/AZYsGithub/DrRay-UI-Library/main/DrRay.lua"))()
 local window = DrRayLibrary:Load("DrRay", "Default")
 
--- ปรับขนาด UI ประมาณ 29%
 task.defer(function()
     local mainFrame = window:FindFirstChild("MainFrame") or window:FindFirstChildWhichIsA("Frame")
     if mainFrame then
@@ -22,17 +21,38 @@ local PlaceId = game.PlaceId
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
--- MAIN TAB
-mainTab.newLabel("Soon")
+-- ใช้ shared เก็บสถานะข้ามรีเกม (สำหรับ Delta Executor)
+shared.AutoFarmWinData = shared.AutoFarmWinData or {
+    RemainingWins = 0,
+    AutoFarmWinEnabled = false
+}
 
--- TELEPORTS TAB
+local function saveState()
+    shared.AutoFarmWinData.RemainingWins = getgenv().RemainingWins
+    shared.AutoFarmWinData.AutoFarmWinEnabled = getgenv().AutoFarmWinEnabled
+end
+
+local function loadState()
+    getgenv().RemainingWins = shared.AutoFarmWinData.RemainingWins or 0
+    getgenv().AutoFarmWinEnabled = shared.AutoFarmWinData.AutoFarmWinEnabled or false
+end
+
+loadState()
+
+local winsLabel = autoFarmTab.newLabel("Win เหลือ: " .. getgenv().RemainingWins)
+
 local function teleportToPosition(pos, name)
     if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         player.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
         print("Teleported to " .. name)
+        return true
+    else
+        warn("ไม่พบ HumanoidRootPart")
+        return false
     end
 end
 
+-- TELEPORTS TAB ปุ่มวาปต่าง ๆ
 teleportsTab.newButton("End", "", function()
     teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61), "End")
 end)
@@ -62,56 +82,49 @@ teleportsTab.newButton("Get Unit 7", "", function()
 end)
 
 -- AUTO FARM WIN OP
-getgenv().RemainingWins = getgenv().RemainingWins or 0
-getgenv().AutoFarmWinEnabled = getgenv().AutoFarmWinEnabled or false
-getgenv().AlreadyQueued = getgenv().AlreadyQueued or false
-
-local winsLabel = autoFarmTab.newLabel("Win เหลือ: " .. getgenv().RemainingWins)
-
-local function teleportToEnd()
-    if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        player.Character.HumanoidRootPart.CFrame = CFrame.new(-645.96, 1505.44, 21.61)
-        print("Teleported to End")
-        return true
-    else
-        warn("ไม่พบ HumanoidRootPart")
-        return false
-    end
-end
-
 local function startAutoFarmWin()
     task.spawn(function()
         while getgenv().AutoFarmWinEnabled and getgenv().RemainingWins > 0 do
-            teleportToEnd()
-            task.wait(12)
-
-            if not getgenv().AlreadyQueued then
-                getgenv().AlreadyQueued = true
-                queue_on_teleport([[loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower.lua"))()]])
+            local success = teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61), "End")
+            if not success then
+                warn("ไม่สามารถวาปไป End ได้")
+                break
             end
 
+            print("รอ " .. (10) .. " วินาที ก่อนรีเกม")
+            wait(10) -- รอระบบทำงาน
+
+            -- รีเกมเอง
+            TeleportService:Teleport(PlaceId, player)
+
+            -- ลดจำนวน Win
             getgenv().RemainingWins = getgenv().RemainingWins - 1
             winsLabel:SetText("Win เหลือ: " .. getgenv().RemainingWins)
+            print("Win เหลือ: " .. getgenv().RemainingWins)
 
-            TeleportService:Teleport(PlaceId, player)
-            break
+            saveState()
+
+            break -- ออกจากลูป เพราะรีเกมแล้วจะโหลดสคริปต์ใหม่
         end
 
         if getgenv().RemainingWins <= 0 then
             winsLabel:SetText("Auto Farm Win (OP) เสร็จสิ้น!")
             print("Auto Farm Win (OP) เสร็จสิ้น")
             getgenv().AutoFarmWinEnabled = false
-            getgenv().AlreadyQueued = false
+            saveState()
+            autoFarmTab.setToggle("Auto Farm Win (OP)", false)
         end
     end)
 end
 
+-- UI ตั้งจำนวน Win และ Toggle Auto Farm
 autoFarmTab.newInput("ตั้งจำนวน Win", "กรอกจำนวนรอบที่จะฟาร์ม", tostring(getgenv().RemainingWins), function(text)
     local num = tonumber(text)
     if num and num > 0 then
         getgenv().RemainingWins = num
         winsLabel:SetText("Win เหลือ: " .. getgenv().RemainingWins)
         print("ตั้งจำนวน Win: " .. num)
+        saveState()
     else
         warn("กรุณากรอกเลขมากกว่า 0")
     end
@@ -119,6 +132,7 @@ end)
 
 autoFarmTab.newToggle("Auto Farm Win (OP)", "เปิด/ปิด Auto Farm Win", getgenv().AutoFarmWinEnabled, function(state)
     getgenv().AutoFarmWinEnabled = state
+    saveState()
     if state then
         if getgenv().RemainingWins <= 0 then
             warn("กรุณาตั้งจำนวน Win ก่อนเปิดใช้งาน")
@@ -132,7 +146,12 @@ autoFarmTab.newToggle("Auto Farm Win (OP)", "เปิด/ปิด Auto Farm Wi
     end
 end)
 
--- MISC TAB
+-- รันออโต้ตอนเริ่มเกมถ้าตั้ง AutoFarm ไว้
+if getgenv().AutoFarmWinEnabled and getgenv().RemainingWins > 0 then
+    startAutoFarmWin()
+end
+
+-- MISC TAB ตัวอย่างอื่นๆ
 miscTab.newButton("Kill Yourself", "", function()
     local h = player.Character and player.Character:FindFirstChild("Humanoid")
     if h then
@@ -218,12 +237,10 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- รีเซ็ต WalkSpeed และ NoClip เวลาตัวละคร respawn
+-- รีเซ็ต WalkSpeed และ NoClip เวลาตัวละคร Respawn
 player.CharacterAdded:Connect(function(char)
     wait(1) -- รอโหลดตัวละคร
     updateWalkSpeed()
-
-    -- รีเซ็ต NoClip ถ้าเปิดอยู่ ให้ทำซ้ำ
     if noclipConn then
         disableNoclip()
         enableNoclip()
