@@ -94,8 +94,8 @@ autoFarmTab.newToggle("Auto Farm Win (OP)", "วาปไป End แล้วร
                 print("Win เหลือ: " .. getgenv().RemainingWins)
 
                 queue_on_teleport([[
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower"))()
-                ]])
+                    https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower.lua
+             ]])
 
                 TeleportService:Teleport(PlaceId, player)
                 break
