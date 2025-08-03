@@ -16,8 +16,6 @@ local autoFarmTab = DrRayLibrary.newTab("Auto Farm", "rbxassetid://6031244740")
 local miscTab = DrRayLibrary.newTab("Misc", "rbxassetid://6031071050")
 
 local player = game.Players.LocalPlayer
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local TeleportService = game:GetService("TeleportService")
 local PlaceId = game.PlaceId
 
@@ -60,113 +58,92 @@ teleportsTab.newButton("Get Unit 7", "", function()
     teleportToPosition(Vector3.new(-995.53, 1365.56, -286.45), "Get Unit 7")
 end)
 
--- AUTO FARM WIN (OP) SYSTEM
-
--- ตัวแปร global เก็บสถานะและค่าต่างๆ (เก็บข้ามรีเกม)
+-- AUTO FARM WIN OP
 getgenv().RemainingWins = getgenv().RemainingWins or 0
 getgenv().AutoFarmWinEnabled = getgenv().AutoFarmWinEnabled or false
 getgenv().AlreadyQueued = getgenv().AlreadyQueued or false
 
+local winsLabel = autoFarmTab.newLabel("Win เหลือ: " .. getgenv().RemainingWins)
+
 local function teleportToEnd()
-    local character = player.Character or player.CharacterAdded:Wait()
-    local hrp = character:WaitForChild("HumanoidRootPart", 5)
-    if hrp then
-        hrp.CFrame = CFrame.new(-645.96, 1505.44, 21.61) -- ตำแหน่ง End
+    if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(-645.96, 1505.44, 21.61)
         print("Teleported to End")
         return true
     else
-        warn("HumanoidRootPart not found, teleport failed")
+        warn("ไม่พบ HumanoidRootPart")
         return false
     end
 end
 
--- Label แสดง Win เหลือแบบเรียลไทม์
-local winsLabel = autoFarmTab.newLabel("Win เหลือ: " .. getgenv().RemainingWins)
-
--- Input สำหรับตั้งจำนวน Win
 autoFarmTab.newInput("ตั้งจำนวน Win", "กรอกจำนวนรอบที่จะฟาร์ม", tostring(getgenv().RemainingWins), function(text)
     local num = tonumber(text)
     if num and num > 0 then
         getgenv().RemainingWins = num
         winsLabel:SetText("Win เหลือ: " .. getgenv().RemainingWins)
-        print("ตั้งจำนวน Win เป็น: " .. num)
+        print("ตั้งจำนวน Win: " .. num)
     else
         warn("กรุณากรอกเลขมากกว่า 0")
     end
 end)
 
--- ฟังก์ชันทำ Auto Farm Win จริงๆ
 local function startAutoFarmWin()
     task.spawn(function()
         while getgenv().AutoFarmWinEnabled and getgenv().RemainingWins > 0 do
             local success = teleportToEnd()
             if not success then
-                wait(3) -- รอแล้วลองใหม่
+                wait(3)
                 continue
             end
-
-            print("รอคูลดาวน์ 15 วินาที...")
-            local waitTime = 15
+            
+            -- รอคูลดาวน์เกม 12 วินาที
+            local waitTime = 12
             for i = waitTime, 1, -1 do
-                winsLabel:SetText("Win เหลือ: " .. getgenv().RemainingWins .. " | รีเฟรชใน " .. i .. " วินาที")
+                winsLabel:SetText("Win เหลือ: " .. getgenv().RemainingWins .. " | รอรีเฟรชใน " .. i .. " วินาที")
                 wait(1)
             end
-
-            -- ตั้ง queue_on_teleport เพื่อโหลดสคริปต์ใหม่หลังรีเกม
+            
             if not getgenv().AlreadyQueued then
                 getgenv().AlreadyQueued = true
                 queue_on_teleport([[
                     loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower.lua"))()
                 ]])
             end
-
+            
             getgenv().RemainingWins -= 1
             print("Win เหลือ: " .. getgenv().RemainingWins)
-
-            -- รีเกม (teleport)
+            
             TeleportService:Teleport(PlaceId, player)
-
-            -- รอรีเกมนานมาก ๆ เพื่อหยุด loop (เพราะเกมจะรีสตาร์ท)
+            
             wait(99999)
         end
-
-        -- ถ้าวินหมด ให้ปิด toggle และแจ้งเตือน
+        
         if getgenv().RemainingWins <= 0 then
             winsLabel:SetText("Auto Farm Win (OP) เสร็จสิ้น!")
-            print("Auto Farm Win (OP) ทำงานเสร็จแล้ว")
+            print("Auto Farm Win (OP) เสร็จสิ้น")
             getgenv().AutoFarmWinEnabled = false
             getgenv().AlreadyQueued = false
         end
     end)
 end
 
--- Toggle เปิด/ปิด Auto Farm Win
-autoFarmTab.newToggle("Auto Farm Win (OP)", "เปิด/ปิดระบบออโต้ฟาร์ม Win", getgenv().AutoFarmWinEnabled, function(state)
+autoFarmTab.newToggle("Auto Farm Win (OP)", "เปิด/ปิด Auto Farm Win", getgenv().AutoFarmWinEnabled, function(state)
     getgenv().AutoFarmWinEnabled = state
 
     if state then
         if getgenv().RemainingWins <= 0 then
-            warn("ยังไม่ได้ตั้งจำนวน Win หรือจำนวนไม่ถูกต้อง")
-            -- ปิด toggle กลับถ้าเปิดโดยไม่ตั้งจำนวน
+            warn("กรุณาตั้งจำนวน Win ก่อนเปิดใช้งาน")
             autoFarmTab.setToggle("Auto Farm Win (OP)", false)
             return
         end
         print("เริ่ม Auto Farm Win (OP)")
         startAutoFarmWin()
     else
-        print("หยุด Auto Farm Win (OP)")
+        print("ปิด Auto Farm Win (OP)")
     end
 end)
 
--- ถ้าโหลดสคริปต์มาใหม่ และเปิด Auto Farm ค้างไว้ ให้เริ่มทำงานต่อทันที
-task.spawn(function()
-    if getgenv().AutoFarmWinEnabled and getgenv().RemainingWins > 0 then
-        print("ทำงานต่อ Auto Farm Win (OP)... Win เหลือ: " .. getgenv().RemainingWins)
-        autoFarmTab.setToggle("Auto Farm Win (OP)", true)
-    end
-end)
-
--- MISC FEATURES
+-- MISC TAB
 -- Kill Yourself
 miscTab.newButton("Kill Yourself", "", function()
     local h = player.Character and player.Character:FindFirstChild("Humanoid")
@@ -177,7 +154,7 @@ end)
 local walkSpeedValue = getgenv().SavedWalkSpeed or 16
 local walkSpeedToggleState = false
 
-miscTab.newInput("Set WalkSpeed", "กรอกเลขความเร็วเดิน", function(text)
+miscTab.newInput("Set WalkSpeed", "กรอกเลขความเร็วเดิน", tostring(walkSpeedValue), function(text)
     local num = tonumber(text)
     if num and num >= 0 and num <= 500 then
         walkSpeedValue = num
@@ -199,6 +176,8 @@ end)
 
 -- NoClip Toggle
 local noclipParts, noclipConn = {}, nil
+local RunService = game:GetService("RunService")
+
 miscTab.newToggle("No-Clip", "ทะลุกำแพง", false, function(state)
     if state then
         noclipConn = RunService.Stepped:Connect(function()
@@ -219,7 +198,9 @@ miscTab.newToggle("No-Clip", "ทะลุกำแพง", false, function(stat
 end)
 
 -- Infinite Jump
+local UserInputService = game:GetService("UserInputService")
 local infJump = false
+
 miscTab.newToggle("Infinite Jump", "กระโดดไม่จำกัด", false, function(state)
     infJump = state
 end)
