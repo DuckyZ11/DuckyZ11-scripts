@@ -1,0 +1,69 @@
+-- โหลด UI Library
+local DrRayLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/AZYsGithub/DrRay-UI-Library/main/DrRay.lua"))()
+local window = DrRayLibrary:Load("DrRay", "Default")
+
+task.defer(function()
+    local mainFrame = window:FindFirstChild("MainFrame") or window:FindFirstChildWhichIsA("Frame")
+    if mainFrame then
+        mainFrame.Size = UDim2.new(0.29, 0, 0.29, 0)
+        mainFrame.Position = UDim2.new(0.35, 0, 0.35, 0)
+    end
+end)
+
+local mainTab = DrRayLibrary.newTab("Main", "rbxassetid://6031763426")
+local teleportsTab = DrRayLibrary.newTab("Teleports", "rbxassetid://6031071058")
+local autoFarmTab = DrRayLibrary.newTab("Auto Farm", "rbxassetid://6031244740")
+local miscTab = DrRayLibrary.newTab("Misc", "rbxassetid://6031071050")
+
+local player = game.Players.LocalPlayer
+local TeleportService = game:GetService("TeleportService")
+local PlaceId = game.PlaceId
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- สถานะ Auto Farm รันแบบวนลูปไม่มีวันหยุด
+shared.AutoFarmRunning = shared.AutoFarmRunning or false
+
+local function waitForCharacter()
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        player.CharacterAdded:Wait()
+        repeat wait() until player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    end
+end
+
+local function teleportToEnd()
+    waitForCharacter()
+    player.Character.HumanoidRootPart.CFrame = CFrame.new(-645.96, 1505.44, 21.61)
+    print("วาปไป End เรียบร้อย")
+end
+
+local function autoFarmLoop()
+    while shared.AutoFarmRunning do
+        teleportToEnd()
+        wait(6) -- รอ 6 วิ เผื่อโหลดและรีจอย
+        TeleportService:TeleportToPlaceInstance(PlaceId, game.JobId, player)
+        wait(5) -- รอเสริมก่อนวนลูปใหม่
+    end
+end
+
+local autoFarmThread
+
+autoFarmTab.newToggle("Auto Farm Win (OP)", "เปิด/ปิด Auto Farm Win (วาปไป End แล้วรีจอยไม่หยุด)", shared.AutoFarmRunning, function(state)
+    shared.AutoFarmRunning = state
+    if state then
+        print("เริ่ม Auto Farm Win (OP)")
+        if not autoFarmThread or coroutine.status(autoFarmThread) == "dead" then
+            autoFarmThread = coroutine.create(autoFarmLoop)
+            coroutine.resume(autoFarmThread)
+        end
+    else
+        print("ปิด Auto Farm Win (OP)")
+    end
+end)
+
+if shared.AutoFarmRunning then
+    autoFarmThread = coroutine.create(autoFarmLoop)
+    coroutine.resume(autoFarmThread)
+end
+
+-- (ส่วนอื่นๆของสคริปต์ตามเดิม ...)
