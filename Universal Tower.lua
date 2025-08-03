@@ -20,10 +20,7 @@ local UserInputService = game:GetService("UserInputService")
 local TeleportService = game:GetService("TeleportService")
 local PlaceId = game.PlaceId
 
--- Main Tab
-mainTab.newLabel("Soon")
-
--- Teleports Tab
+-- ฟังก์ชันวาป
 local function teleportToPosition(pos, name)
     if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         player.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
@@ -31,6 +28,10 @@ local function teleportToPosition(pos, name)
     end
 end
 
+-- Main Tab
+mainTab.newLabel("Soon")
+
+-- Teleports Tab
 teleportsTab.newButton("End", "", function()
     teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61), "End")
 end)
@@ -86,9 +87,16 @@ autoFarmTab.newToggle("Auto Farm Win (OP)", "วาปไป End แล้วร
             return
         end
         task.spawn(function()
-            while getgenv().AutoFarmWinEnabled and getgenv().RemainingWins > 0 do
+            while getgenv().AutoFarmWinEnabled do
+                if getgenv().RemainingWins <= 0 then
+                    getgenv().AutoFarmWinEnabled = false
+                    autoFarmTab.setToggle("Auto Farm Win (OP)", false)
+                    print("Auto Farm Win (OP) เสร็จเรียบร้อยแล้ว!")
+                    break
+                end
                 teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61), "End")
-                task.wait(7)
+                print("วาปไป End")
+                task.wait(7) -- รอให้เกมรับ win
 
                 if not getgenv().AlreadyQueued then
                     getgenv().AlreadyQueued = true
@@ -100,7 +108,7 @@ autoFarmTab.newToggle("Auto Farm Win (OP)", "วาปไป End แล้วร
                 getgenv().RemainingWins -= 1
                 print("Win เหลือ: " .. getgenv().RemainingWins)
                 TeleportService:Teleport(PlaceId, player)
-                break
+                task.wait(99999) -- รอรีเกม
             end
         end)
     else
