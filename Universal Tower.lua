@@ -21,106 +21,47 @@ local PlaceId = game.PlaceId
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
--- เก็บสถานะใน shared (สำหรับ Delta Executor)
-shared.AutoFarmWinData = shared.AutoFarmWinData or {
-    RemainingWins = 0,
-    AutoFarmWinEnabled = false
-}
+-- สถานะ Auto Farm ใน shared สำหรับ Delta Executor
+shared.AutoFarmRunning = shared.AutoFarmRunning or false
 
--- โหลดสถานะจาก shared ไป getgenv()
-local function loadState()
-    getgenv().RemainingWins = shared.AutoFarmWinData.RemainingWins or 0
-    getgenv().AutoFarmWinEnabled = shared.AutoFarmWinData.AutoFarmWinEnabled or false
-end
-
--- บันทึกสถานะจาก getgenv() ไป shared
-local function saveState()
-    shared.AutoFarmWinData.RemainingWins = getgenv().RemainingWins
-    shared.AutoFarmWinData.AutoFarmWinEnabled = getgenv().AutoFarmWinEnabled
-end
-
-loadState()
-
--- ฟังก์ชันวาปไป End รอโหลดตัวละครก่อนวาป
+-- ฟังก์ชันวาปไป End
 local function teleportToEnd()
     if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
         player.CharacterAdded:Wait()
         repeat wait() until player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     end
-
     player.Character.HumanoidRootPart.CFrame = CFrame.new(-645.96, 1505.44, 21.61)
-    print("วาปสำเร็จ")
-    return true
+    print("วาปไป End เรียบร้อย")
 end
 
--- สร้าง label แสดง Win เหลือ
-local winsLabel = autoFarmTab.newLabel("Win เหลือ: " .. getgenv().RemainingWins)
-
--- ฟังก์ชันเริ่ม Auto Farm Win
-local function startAutoFarmWin()
+-- ฟังก์ชันเริ่ม Auto Farm วาป + รีเกมวนลูป
+local function startAutoFarm()
+    if shared.AutoFarmRunning then return end
+    shared.AutoFarmRunning = true
     task.spawn(function()
-        while getgenv().AutoFarmWinEnabled and getgenv().RemainingWins > 0 do
-            local success = teleportToEnd()
-            if not success then
-                warn("วาปไป End ไม่สำเร็จ")
-                break
-            end
-
-            print("รอ 10 วินาที ก่อนรีเกม")
+        while shared.AutoFarmRunning do
+            teleportToEnd()
             wait(10)
-
-            getgenv().RemainingWins = getgenv().RemainingWins - 1
-            winsLabel:SetText("Win เหลือ: " .. getgenv().RemainingWins)
-            saveState()
-
             TeleportService:Teleport(PlaceId, player)
-
             break -- ออกจากลูปเพราะรีเกม
-        end
-
-        if getgenv().RemainingWins <= 0 then
-            winsLabel:SetText("Auto Farm Win (OP) เสร็จสิ้น!")
-            print("Auto Farm Win (OP) เสร็จสิ้น")
-            getgenv().AutoFarmWinEnabled = false
-            saveState()
-            autoFarmTab.setToggle("Auto Farm Win (OP)", false)
         end
     end)
 end
 
--- UI กรอกจำนวน Win
-autoFarmTab.newInput("ตั้งจำนวน Win", "กรอกจำนวนรอบที่จะฟาร์ม", tostring(getgenv().RemainingWins), function(text)
-    local num = tonumber(text)
-    if num and num > 0 then
-        getgenv().RemainingWins = num
-        winsLabel:SetText("Win เหลือ: " .. getgenv().RemainingWins)
-        saveState()
-        print("ตั้งจำนวน Win: " .. num)
-    else
-        warn("กรุณากรอกเลขมากกว่า 0")
-    end
-end)
-
--- UI Toggle เปิด/ปิด Auto Farm Win
-autoFarmTab.newToggle("Auto Farm Win (OP)", "เปิด/ปิด Auto Farm Win", getgenv().AutoFarmWinEnabled, function(state)
-    getgenv().AutoFarmWinEnabled = state
-    saveState()
+-- UI toggle เปิด/ปิด Auto Farm (วาปไป End แล้วรีเกม)
+autoFarmTab.newToggle("Auto Farm Win (OP)", "เปิด/ปิด Auto Farm Win (วาปไป End แล้วรีเกม)", shared.AutoFarmRunning, function(state)
+    shared.AutoFarmRunning = state
     if state then
-        if getgenv().RemainingWins <= 0 then
-            warn("กรุณาตั้งจำนวน Win ก่อนเปิดใช้งาน")
-            autoFarmTab.setToggle("Auto Farm Win (OP)", false)
-            return
-        end
         print("เริ่ม Auto Farm Win (OP)")
-        startAutoFarmWin()
+        startAutoFarm()
     else
         print("ปิด Auto Farm Win (OP)")
     end
 end)
 
--- เริ่ม Auto Farm Win อัตโนมัติถ้าตั้งไว้ก่อนหน้า
-if getgenv().AutoFarmWinEnabled and getgenv().RemainingWins > 0 then
-    startAutoFarmWin()
+-- ถ้าเปิดไว้ตอนโหลดสคริปต์ ให้เริ่ม Auto Farm อัตโนมัติ
+if shared.AutoFarmRunning then
+    startAutoFarm()
 end
 
 -- MAIN TAB
