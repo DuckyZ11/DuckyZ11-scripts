@@ -1,0 +1,130 @@
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "KeyCheckGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 350, 0, 160)
+frame.Position = UDim2.new(0.5, -175, 0.5, -80)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Text = "Key Verification"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 22
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.BackgroundTransparency = 1
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Parent = frame
+
+local keyBox = Instance.new("TextBox")
+keyBox.PlaceholderText = "Enter your key here"
+keyBox.Font = Enum.Font.Gotham
+keyBox.TextSize = 18
+keyBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+keyBox.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
+keyBox.Size = UDim2.new(0.9, 0, 0, 35)
+keyBox.Position = UDim2.new(0.05, 0, 0, 50)
+keyBox.ClearTextOnFocus = false
+keyBox.Parent = frame
+
+local submitBtn = Instance.new("TextButton")
+submitBtn.Text = "Submit"
+submitBtn.Font = Enum.Font.GothamSemibold
+submitBtn.TextSize = 18
+submitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+submitBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
+submitBtn.Size = UDim2.new(0.4, 0, 0, 40)
+submitBtn.Position = UDim2.new(0.05, 0, 0, 95)
+submitBtn.Parent = frame
+
+local getKeyBtn = Instance.new("TextButton")
+getKeyBtn.Text = "Get Keys"
+getKeyBtn.Font = Enum.Font.GothamSemibold
+getKeyBtn.TextSize = 18
+getKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+getKeyBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 100)
+getKeyBtn.Size = UDim2.new(0.4, 0, 0, 40)
+getKeyBtn.Position = UDim2.new(0.55, 0, 0, 95)
+getKeyBtn.Parent = frame
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Text = ""
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextSize = 16
+statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Size = UDim2.new(1, 0, 0, 25)
+statusLabel.Position = UDim2.new(0, 0, 1, -25)
+statusLabel.Parent = frame
+
+local keyURLs = {
+    ["1 day"] = "https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/1day_key",
+    ["3 day"] = "https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/3day_key",
+    ["7 day"] = "https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/7day_key",
+    ["Premium Trial"] = "https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Premium_trial",
+    ["Lifetime Premium"] = "https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Lifetime_Premium",
+}
+
+local allKeys = {}
+
+local function fetchKeys()
+    for keyType, url in pairs(keyURLs) do
+        local success, data = pcall(function()
+            return game:HttpGet(url)
+        end)
+        if success and data then
+            for line in data:gmatch("[^\r\n]+") do
+                allKeys[line] = keyType
+            end
+        end
+    end
+end
+
+fetchKeys()
+
+local function isValidKey(key)
+    return allKeys[key]
+end
+
+submitBtn.MouseButton1Click:Connect(function()
+    local key = keyBox.Text:match("^%s*(.-)%s*$") -- trim spaces
+    if key == "" then
+        statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        statusLabel.Text = "Please enter a key"
+        return
+    end
+
+    local keyType = isValidKey(key)
+    if keyType then
+        statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+        statusLabel.Text = "Key valid: " .. keyType
+
+        wait(1)
+        screenGui:Destroy()
+
+        -- รันสคริปต์หลักหลังจากยืนยันคีย์ถูกต้อง
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower.lua"))()
+    else
+        statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        statusLabel.Text = "Invalid key, please try again."
+    end
+end)
+
+getKeyBtn.MouseButton1Click:Connect(function()
+    local link = "https://duckyz11.github.io/DuckyZ11-scripts/"
+    if setclipboard then
+        setclipboard(link)
+        statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+        statusLabel.Text = "Copied to clipboard!"
+    else
+        statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        statusLabel.Text = "Clipboard not supported."
+    end
+end)
