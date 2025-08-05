@@ -1,5 +1,5 @@
 local DrRayLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/AZYsGithub/DrRay-UI-Library/main/DrRay.lua"))()
-local window = DrRayLibrary:Load("DrRay", "Default")
+local window = DrRayLibrary:Load("premium version", "Default")
 
 -- ปรับขนาด UI ประมาณ 29%
 task.defer(function()
@@ -19,10 +19,72 @@ local player = game.Players.LocalPlayer
 local TeleportService = game:GetService("TeleportService")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local PlaceId = game.PlaceId
 
--- MAIN TAB
-mainTab.newLabel("Soon")
+-- ฟังก์ชันช่วยดูดแบต
+local function tryMagnetizeBattery(batteryModel)
+    if not batteryModel or not batteryModel.Parent then return end
+    if batteryModel:IsA("Model") and batteryModel.Name == "Battery" then
+        local primary = batteryModel.PrimaryPart or batteryModel:FindFirstChildWhichIsA("BasePart")
+        if primary then
+            local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                pcall(function()
+                    primary.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 2, 0))
+                end)
+            end
+        end
+    end
+end
+
+local magnetBattery = false
+local magnetConnection = nil
+
+mainTab.newToggle("Magnet Battery (All Range)", "ดูดแบตทั้งหมดในเกมเข้าหาตัวทันที", false, function(state)
+    magnetBattery = state
+    if state then
+        -- ดึงแบตเก่าทั้งหมดตอนเปิด
+        for _, v in ipairs(workspace:GetDescendants()) do
+            tryMagnetizeBattery(v)
+        end
+
+        -- เชื่อม event ฟังตอนมีแบตใหม่โผล่
+        magnetConnection = workspace.DescendantAdded:Connect(function(descendant)
+            tryMagnetizeBattery(descendant)
+        end)
+    else
+        -- ปิด event
+        if magnetConnection then
+            magnetConnection:Disconnect()
+            magnetConnection = nil
+        end
+    end
+end)
+
+-- เพิ่มปุ่ม Tower Event ในแท็บ Main
+mainTab.newButton("Tower Event", "วาร์ปไปจุด Tower Event พิเศษ", function()
+    local towerEvent = workspace:FindFirstChild("TowerEvent")
+    if towerEvent then
+        local specialWeek = towerEvent:FindFirstChild("Special Week")
+        if specialWeek and specialWeek:FindFirstChild("Special Week") then
+            local block = specialWeek["Special Week"]:FindFirstChild("Block")
+            if block and block:IsA("BasePart") then
+                local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.CFrame = block.CFrame + Vector3.new(0, 5, 0)
+                    print("[TowerEvent] Teleported to Tower Event Block")
+                end
+            else
+                warn("[TowerEvent] ไม่พบ Block ภายใน Special Week")
+            end
+        else
+            warn("[TowerEvent] ไม่พบ Special Week -> Special Week")
+        end
+    else
+        warn("[TowerEvent] ไม่พบ TowerEvent ใน workspace")
+    end
+end)
 
 -- TELEPORTS TAB
 local function teleportToPosition(pos, name)
@@ -35,27 +97,39 @@ end
 teleportsTab.newButton("End", "", function()
     teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61), "End")
 end)
+
 teleportsTab.newButton("Safezone", "", function()
     teleportToPosition(Vector3.new(-944.47, 1014.38, 55.65), "Safezone")
 end)
+
+teleportsTab.newButton("Nearby end", "", function()
+    teleportToPosition(Vector3.new(-657.45, 1505.44, 21.10), "Nearby end")
+end)
+
 teleportsTab.newButton("Get Unit 1", "", function()
     teleportToPosition(Vector3.new(-1090.60, 1395.38, 298.34), "Get Unit 1")
 end)
+
 teleportsTab.newButton("Get Unit 2", "", function()
     teleportToPosition(Vector3.new(-1318.05, 1240.66, -37.35), "Get Unit 2")
 end)
+
 teleportsTab.newButton("Get Unit 3", "", function()
     teleportToPosition(Vector3.new(-941.67, 1263.38, -167.66), "Get Unit 3")
 end)
+
 teleportsTab.newButton("Get Unit 4", "", function()
     teleportToPosition(Vector3.new(-1203.99, 1365.39, -90.20), "Get Unit 4")
 end)
+
 teleportsTab.newButton("Get Unit 5", "", function()
     teleportToPosition(Vector3.new(-945.93, 1014.38, 170.06), "Get Unit 5")
 end)
+
 teleportsTab.newButton("Get Unit 6", "", function()
     teleportToPosition(Vector3.new(-1186.58, 1240.68, 191.17), "Get Unit 6")
 end)
+
 teleportsTab.newButton("Get Unit 7", "", function()
     teleportToPosition(Vector3.new(-995.53, 1365.56, -286.45), "Get Unit 7")
 end)
@@ -124,7 +198,7 @@ local function autoFarmLoop()
 
         print("[AutoFarm] รีจอย...")
         queue_on_teleport(script.Source)
-        TeleportService:Teleport(placeId)
+        TeleportService:Teleport(PlaceId)
         break
     end
 end
