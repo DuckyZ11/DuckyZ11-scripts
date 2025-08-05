@@ -4,49 +4,24 @@
   <meta charset="UTF-8" />
   <title>DuckyHub Key System</title>
   <style>
-    body {
-      background: #121212;
-      color: #eee;
-      font-family: sans-serif;
-      text-align: center;
-      margin-top: 6%;
+    body { background:#121212; color:#eee; font-family:sans-serif; text-align:center; margin-top:6%; }
+    select, button { font-size:18px; padding:10px; margin:10px; border-radius:10px; }
+    button { background:#00cc99; border:none; color:#fff; cursor:pointer; }
+    #key { margin-top:20px; font-size:20px; color:#00ff99; white-space: pre-wrap; }
+    #status { font-size: 16px; margin-top: 10px; min-height: 24px; }
+    #langToggle, #refreshBtn {
+      position: absolute; top: 10px; font-size: 18px;
+      background: transparent; border: none; color: white; cursor: pointer;
     }
-    select, button {
-      font-size: 24px;
-      padding: 30px;
-      margin: 10px;
-      border-radius: 10px;
-    }
-    button {
-      background: #00cc99;
-      border: none;
-      color: #fff;
-      cursor: pointer;
-    }
-    #key {
-      margin-top: 20px;
-      font-size: 30px;
-      color: #00ff99;
-      white-space: pre-wrap;
-    }
-    #copyBtn {
-      display: none;
-      background: #444;
-      margin-top: 10px;
-    }
-    #langToggle {
-      font-size: 14px;
-      margin-top: 20px;
-      cursor: pointer;
-      background: transparent;
-      border: none;
-      color: #ccc;
-    }
+    #langToggle { right: 10px; }
+    #refreshBtn { left: 10px; }
   </style>
 </head>
 <body>
+  <button id="refreshBtn" onclick="location.reload()">🔄</button>
+  <button id="langToggle">🌐</button>
 
-  <h1>🔑 รับคีย์ DuckyHub</h1>
+  <h1 id="title">🔑 รับคีย์ DuckyHub</h1>
   <select id="duration">
     <option value="1d">คีย์ 1 วัน</option>
     <option value="3d">คีย์ 3 วัน</option>
@@ -54,129 +29,168 @@
     <option value="premium_trial">Premium Trial (ติดต่อ Discord)</option>
     <option value="lifetime">Lifetime Premium (ติดต่อ Discord)</option>
   </select><br/>
+
   <button onclick="getKey()">📥 รับคีย์</button>
+  <button id="copyBtn">📋 คัดลอกคีย์</button>
   <div id="key"></div>
-  <button id="copyBtn">📋 คัดลอกคีย์</button><br/>
-  <button id="langToggle">🌐 Language</button>
+  <div id="status"></div>
 
-  <script>
-    const keyLinks = {
-      "1d": "https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/1day_key",
-      "3d": "https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/3day_key",
-      "7d": "https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/7day_key"
-    };
+<script>
+  const keyLinks = {
+    "1d": "https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/1day_key",
+    "3d": "https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/3day_key",
+    "7d": "https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/7day_key"
+  };
 
-    let currentLang = localStorage.getItem("lang") || "th";
-
-    const langData = {
-      "th": {
-        btnCopy: "📋 คัดลอกคีย์",
-        keyResult: k => `🔐 คีย์ของคุณคือ:\n${k}`,
-        keyUsed: (type, h, m, s) => `⛔ คุณได้รับคีย์ประเภท "${type}" แล้ว\nโปรดรออีก ${h} ชม. ${m} นาที ${s} วินาที`,
-        keyExpired: "❌ คีย์หมดแล้ว กรุณาติดต่อผู้ดูแล",
-        contact: "dms my discord areayousure",
-        copied: "📋 คัดลอกคีย์แล้ว!"
-      },
-      "en": {
-        btnCopy: "📋 Copy Key",
-        keyResult: k => `🔐 Your key is:\n${k}`,
-        keyUsed: (type, h, m, s) => `⛔ You've already claimed key type "${type}"\nWait ${h}h ${m}m ${s}s to try again`,
-        keyExpired: "❌ No keys left. Please contact admin.",
-        contact: "dms my discord areayousure",
-        copied: "📋 Key copied!"
+  const langData = {
+    "th": {
+      title: "🔑 รับคีย์ DuckyHub",
+      btnCopy: "📋 คัดลอกคีย์",
+      keyResult: k => `🔐 คีย์ของคุณคือ:\n${k}`,
+      keyUsed: (type, h, m, s) => `⛔ คุณได้รับคีย์ประเภท "${type}" แล้ว\nโปรดรออีก ${h} ชม. ${m} นาที ${s} วินาที`,
+      keyExpired: "❌ คีย์หมดแล้ว กรุณาติดต่อผู้ดูแล",
+      contact: "dms my discord areayousure",
+      copied: "📋 คัดลอกคีย์แล้ว!",
+      selectOptions: {
+        "1d": "คีย์ 1 วัน", "3d": "คีย์ 3 วัน", "7d": "คีย์ 7 วัน",
+        "premium_trial": "Premium Trial (ติดต่อ Discord)",
+        "lifetime": "Lifetime Premium (ติดต่อ Discord)"
       }
-    };
-
-    const keyDiv = document.getElementById("key");
-    const copyBtn = document.getElementById("copyBtn");
-
-    function updateLangUI() {
-      copyBtn.textContent = langData[currentLang].btnCopy;
-      localStorage.setItem("lang", currentLang);
+    },
+    "en": {
+      title: "🔑 Get DuckyHub Key",
+      btnCopy: "📋 Copy Key",
+      keyResult: k => `🔐 Your key is:\n${k}`,
+      keyUsed: (type, h, m, s) => `⛔ You've already claimed key type "${type}"\nWait ${h}h ${m}m ${s}s to try again`,
+      keyExpired: "❌ No keys left. Please contact admin.",
+      contact: "dms my discord areayousure",
+      copied: "📋 Key copied!",
+      selectOptions: {
+        "1d": "1 Day Key", "3d": "3 Day Key", "7d": "7 Day Key",
+        "premium_trial": "Premium Trial (Contact Discord)",
+        "lifetime": "Lifetime Premium (Contact Discord)"
+      }
     }
+  };
 
-    document.getElementById("langToggle").onclick = function() {
-      currentLang = currentLang === "th" ? "en" : "th";
-      updateLangUI();
-    };
+  let currentLang = localStorage.getItem("lang") || "th";
+  let currentKey = "";
+  const keyDiv = document.getElementById("key");
+  const copyBtn = document.getElementById("copyBtn");
 
+  function updateLangUI() {
+    const t = langData[currentLang];
+    document.getElementById("title").innerText = t.title;
+    copyBtn.textContent = t.btnCopy;
+    const duration = document.getElementById("duration");
+    Array.from(duration.options).forEach(opt => {
+      if (t.selectOptions[opt.value]) opt.text = t.selectOptions[opt.value];
+    });
+    localStorage.setItem("lang", currentLang);
+  }
+
+  document.getElementById("langToggle").onclick = () => {
+    currentLang = currentLang === "th" ? "en" : "th";
     updateLangUI();
+    renderSavedKey(); // อัปเดตข้อความทันทีเมื่อเปลี่ยนภาษา
+  };
 
-    function getKey() {
-      const val = document.getElementById("duration").value;
-      const t = langData[currentLang];
+  updateLangUI();
 
-      if (val === "premium_trial" || val === "lifetime") {
-        keyDiv.innerText = t.contact;
-        copyBtn.style.display = "none";
-        return;
-      }
-
-      const prev = localStorage.getItem("used_type");
-      const expire = localStorage.getItem("expire_time");
-      const now = Date.now();
-
-      if (expire && now < parseInt(expire)) {
-        const h = Math.floor((expire - now) / 3600000);
-        const m = Math.floor(((expire - now) % 3600000) / 60000);
-        const s = Math.floor(((expire - now) % 60000) / 1000);
-        keyDiv.innerText = t.keyUsed(prev || val, h, m, s);
-        return;
-      }
-
-      const url = keyLinks[val];
-      if (!url) {
-        keyDiv.innerText = "Invalid key type";
-        return;
-      }
-
-      fetch(url)
-        .then(res => {
-          if (!res.ok) throw new Error("net");
-          return res.text();
-        })
-        .then(text => {
-          const keys = text.trim().split("\n").map(k => k.trim()).filter(k => k.length > 0);
-          const usedKeys = JSON.parse(sessionStorage.getItem(val) || "[]");
-          const availableKeys = keys.filter(k => !usedKeys.includes(k));
-
-          if (availableKeys.length === 0) {
-            keyDiv.innerText = t.keyExpired;
-            return;
-          }
-
-          const randKey = availableKeys[Math.floor(Math.random() * availableKeys.length)];
-          usedKeys.push(randKey);
-          sessionStorage.setItem(val, JSON.stringify(usedKeys));
-
-          localStorage.setItem("used_type", val);
-          localStorage.setItem("expire_time", (Date.now() + (val === "1d" ? 86400000 : val === "3d" ? 259200000 : 604800000)).toString());
-          localStorage.setItem("saved_key", randKey);
-
-          keyDiv.innerText = t.keyResult(randKey);
-          copyBtn.style.display = "inline-block";
-        })
-        .catch(() => {
-          keyDiv.innerText = "❌ ไม่สามารถโหลดคีย์ได้";
-        });
-    }
-
-    // โหลดคีย์เดิม
+  function renderSavedKey() {
     const savedKey = localStorage.getItem("saved_key");
-    if (savedKey) {
+    const expire = localStorage.getItem("expire_time");
+    const val = localStorage.getItem("used_type");
+
+    if (savedKey && expire && Date.now() < parseInt(expire)) {
+      currentKey = savedKey;
       keyDiv.innerText = langData[currentLang].keyResult(savedKey);
       copyBtn.style.display = "inline-block";
+    } else {
+      currentKey = "";
+      keyDiv.innerText = "";
+      copyBtn.style.display = "none";
+    }
+  }
+
+  renderSavedKey();
+
+  function getKey() {
+    const val = document.getElementById("duration").value;
+    const now = Date.now();
+    const t = langData[currentLang];
+
+    if (val === "premium_trial" || val === "lifetime") {
+      keyDiv.innerText = t.contact;
+      copyBtn.style.display = "none";
+      return;
     }
 
-    copyBtn.onclick = function () {
-      const key = localStorage.getItem("saved_key");
-      if (key) {
-        navigator.clipboard.writeText(key);
-        alert(langData[currentLang].copied);
-      }
-    };
-  </script>
+    const prev = localStorage.getItem("used_type");
+    const expire = localStorage.getItem("expire_time");
+
+    if (expire && now < parseInt(expire)) {
+      const h = Math.floor((expire - now) / 3600000);
+      const m = Math.floor(((expire - now) % 3600000) / 60000);
+      const s = Math.floor(((expire - now) % 60000) / 1000);
+      keyDiv.innerText = t.keyResult(localStorage.getItem("saved_key") || "");
+      showStatus(t.keyUsed(prev || val, h, m, s), "#ffcc00");
+      return;
+    }
+
+    const url = keyLinks[val];
+    if (!url) {
+      showStatus("Invalid key type", "#ff4444");
+      return;
+    }
+
+    fetch(url)
+      .then(res => {
+        if (!res.ok) throw new Error();
+        return res.text();
+      })
+      .then(text => {
+        const keys = text.trim().split("\n").map(k => k.trim()).filter(k => k.length > 0);
+        const usedKeys = JSON.parse(sessionStorage.getItem(val) || "[]");
+        const available = keys.filter(k => !usedKeys.includes(k));
+
+        if (available.length === 0) {
+          keyDiv.innerText = t.keyExpired;
+          copyBtn.style.display = "none";
+          return;
+        }
+
+        const randKey = available[Math.floor(Math.random() * available.length)];
+        usedKeys.push(randKey);
+        sessionStorage.setItem(val, JSON.stringify(usedKeys));
+        localStorage.setItem("used_type", val);
+        localStorage.setItem("expire_time", (now + (val === "1d" ? 86400000 : val === "3d" ? 259200000 : 604800000)).toString());
+        localStorage.setItem("saved_key", randKey);
+
+        keyDiv.innerText = t.keyResult(randKey);
+        copyBtn.style.display = "inline-block";
+        currentKey = randKey;
+      })
+      .catch(() => {
+        showStatus(t.keyExpired, "#ff4444");
+      });
+  }
+
+  copyBtn.onclick = () => {
+    if (!currentKey) return;
+    navigator.clipboard.writeText(currentKey).then(() => {
+      alert(langData[currentLang].copied);
+    });
+  };
+
+  function showStatus(msg, color = "#00cc99", delay = 4000) {
+    const div = document.getElementById("status");
+    div.innerText = msg;
+    div.style.color = color;
+    if (delay > 0) {
+      setTimeout(() => { div.innerText = ""; }, delay);
+    }
+  }
+</script>
 </body>
 </html>
-
-
