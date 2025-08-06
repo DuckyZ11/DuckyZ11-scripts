@@ -22,31 +22,60 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local PlaceId = game.PlaceId
 
--- Magnet Battery (All Range) ด้วย Tween (ดึงแม้ตาย) local TweenService = game:GetService("TweenService") local magnetBatteryToggle = false local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Linear)
+-- Magnet Battery (All Range) from workspace.FX.BatteryModel
+local magnetBattery = false
+local magnetConnection = nil
 
-local function pullBatteryToPlayer(batteryModel) local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart") if not hrp then return end local part = batteryModel.PrimaryPart or batteryModel:FindFirstChildWhichIsA("BasePart") if part then local tween = TweenService:Create(part, tweenInfo, { CFrame = hrp.CFrame + Vector3.new(0, 3, 0) }) tween:Play() end end
+-- Tween settings
+local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Linear)
 
-local function isBatteryModel(model) return model:IsA("Model") and (model.Name == "Battery" or model.Name == "Batteries") end
+-- ฟังก์ชันดึงแบต
+local function magnetizeBatteryFromFolder()
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
 
-mainTab.newToggle("Magnet Battery (All Range)", "ดูดแบตทั้งหมดในเกมเข้าหาตัวทันที", false, function(state) magnetBatteryToggle = state if state then -- ดึงของเก่าทันที for _, obj in ipairs(workspace:GetDescendants()) do if isBatteryModel(obj) then pullBatteryToPlayer(obj) end end
-
--- ฟังการเกิดใหม่ของ Battery
-    if _G.BatteryConnection then _G.BatteryConnection:Disconnect() end
-    _G.BatteryConnection = workspace.DescendantAdded:Connect(function(obj)
-        task.wait(0.1)
-        if isBatteryModel(obj) then
-            pullBatteryToPlayer(obj)
+    local folder = workspace:FindFirstChild("FX") and workspace.FX:FindFirstChild("BatteryModel")
+    if folder then
+        for _, model in ipairs(folder:GetChildren()) do
+            if model:IsA("Model") then
+                local primary = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+                if primary then
+                    local tween = TweenService:Create(primary, tweenInfo, {
+                        CFrame = hrp.CFrame + Vector3.new(0, 3, 0)
+                    })
+                    tween:Play()
+                end
+            end
         end
-    end)
-else
-    if _G.BatteryConnection then
-        _G.BatteryConnection:Disconnect()
-        _G.BatteryConnection = nil
     end
 end
 
-end)
+-- เวลามีแบตใหม่เพิ่ม
+local function descendantAddedToBatteryModel(desc)
+    if desc:IsA("Model") then
+        task.wait(0.1)
+        magnetizeBatteryFromFolder()
+    end
+end
 
+mainTab.newToggle("Magnet Battery (All Range)", "ดูดแบตจาก FX/BatteryModel เข้าใกล้ตัว", false, function(state)
+    magnetBattery = state
+    if state then
+        -- ดึงตอนเปิด
+        magnetizeBatteryFromFolder()
+
+        -- ต่อ event ถ้ามีโผล่มาใหม่
+        local batteryFolder = workspace:FindFirstChild("FX") and workspace.FX:FindFirstChild("BatteryModel")
+        if batteryFolder then
+            magnetConnection = batteryFolder.DescendantAdded:Connect(descendantAddedToBatteryModel)
+        end
+    else
+        if magnetConnection then
+            magnetConnection:Disconnect()
+            magnetConnection = nil
+        end
+    end
+end)
 -- รีเซ็ตตัวละครแล้วยังทำงานต่อ player.CharacterAdded:Connect(function() task.wait(1) if magnetBatteryToggle then for _, obj in ipairs(workspace:GetDescendants()) do if isBatteryModel(obj) then pullBatteryToPlayer(obj) end end end end)
 
 -- เพิ่มปุ่ม Tower Event ในแท็บ Main
