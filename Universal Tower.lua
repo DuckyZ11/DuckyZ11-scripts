@@ -22,45 +22,32 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local PlaceId = game.PlaceId
 
--- ฟังก์ชันช่วยดูดแบต
-local function tryMagnetizeBattery(batteryModel)
-    if not batteryModel or not batteryModel.Parent then return end
-    if batteryModel:IsA("Model") and batteryModel.Name == "Battery" then
-        local primary = batteryModel.PrimaryPart or batteryModel:FindFirstChildWhichIsA("BasePart")
-        if primary then
-            local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                pcall(function()
-                    primary.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 2, 0))
-                end)
-            end
+-- Magnet Battery (All Range) ด้วย Tween (ดึงแม้ตาย) local TweenService = game:GetService("TweenService") local magnetBatteryToggle = false local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Linear)
+
+local function pullBatteryToPlayer(batteryModel) local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart") if not hrp then return end local part = batteryModel.PrimaryPart or batteryModel:FindFirstChildWhichIsA("BasePart") if part then local tween = TweenService:Create(part, tweenInfo, { CFrame = hrp.CFrame + Vector3.new(0, 3, 0) }) tween:Play() end end
+
+local function isBatteryModel(model) return model:IsA("Model") and (model.Name == "Battery" or model.Name == "Batteries") end
+
+mainTab.newToggle("Magnet Battery (All Range)", "ดูดแบตทั้งหมดในเกมเข้าหาตัวทันที", false, function(state) magnetBatteryToggle = state if state then -- ดึงของเก่าทันที for _, obj in ipairs(workspace:GetDescendants()) do if isBatteryModel(obj) then pullBatteryToPlayer(obj) end end
+
+-- ฟังการเกิดใหม่ของ Battery
+    if _G.BatteryConnection then _G.BatteryConnection:Disconnect() end
+    _G.BatteryConnection = workspace.DescendantAdded:Connect(function(obj)
+        task.wait(0.1)
+        if isBatteryModel(obj) then
+            pullBatteryToPlayer(obj)
         end
+    end)
+else
+    if _G.BatteryConnection then
+        _G.BatteryConnection:Disconnect()
+        _G.BatteryConnection = nil
     end
 end
 
-local magnetBattery = false
-local magnetConnection = nil
-
-mainTab.newToggle("Magnet Battery (All Range)", "ดูดแบตทั้งหมดในเกมเข้าหาตัวทันที", false, function(state)
-    magnetBattery = state
-    if state then
-        -- ดึงแบตเก่าทั้งหมดตอนเปิด
-        for _, v in ipairs(workspace:GetDescendants()) do
-            tryMagnetizeBattery(v)
-        end
-
-        -- เชื่อม event ฟังตอนมีแบตใหม่โผล่
-        magnetConnection = workspace.DescendantAdded:Connect(function(descendant)
-            tryMagnetizeBattery(descendant)
-        end)
-    else
-        -- ปิด event
-        if magnetConnection then
-            magnetConnection:Disconnect()
-            magnetConnection = nil
-        end
-    end
 end)
+
+-- รีเซ็ตตัวละครแล้วยังทำงานต่อ player.CharacterAdded:Connect(function() task.wait(1) if magnetBatteryToggle then for _, obj in ipairs(workspace:GetDescendants()) do if isBatteryModel(obj) then pullBatteryToPlayer(obj) end end end end)
 
 -- เพิ่มปุ่ม Tower Event ในแท็บ Main
 mainTab.newButton("Tower Event", "วาร์ปไปจุด Tower Event พิเศษ", function()
