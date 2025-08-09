@@ -1,101 +1,73 @@
 local player = game.Players.LocalPlayer
+local autoWarpEnabled = false
 
--- ฟังก์ชันสร้าง UI
-local function createUI()
-    -- ลบของเก่า (กันซ้อน)
-    if player.PlayerGui:FindFirstChild("WarpUI") then
-        player.PlayerGui.WarpUI:Destroy()
-    end
+local locations = {
+    {type = "part", name = "Checkpoint1", label = "Camp 1"},
+    {type = "part", name = "Checkpoint2", label = "Camp 2"},
+    {type = "part", name = "Checkpoint3", label = "Camp 3"},
+    {type = "part", name = "Checkpoint4", label = "Camp 4"},
+    {type = "part", name = "Checkpoint5", label = "Camp 5"},
+    {type = "pos", pos = Vector3.new(263, 326, 698), label = "Top"},
+}
 
+local function warpTo(location)
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:WaitForChild("HumanoidRootPart")
 
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "WarpUI"
-    ScreenGui.Parent = player:WaitForChild("PlayerGui")
-    ScreenGui.ResetOnSpawn = false -- ไม่รีเซ็ต UI ตอนตาย
+    if location.type == "part" then
+        local checkpoint = workspace.Checkpoints:FindFirstChild(location.name)
+        if checkpoint and checkpoint:IsA("BasePart") then
+            hrp.CFrame = checkpoint.CFrame
+        else
+            warn("ไม่พบ " .. location.label)
+        end
+    elseif location.type == "pos" then
+        hrp.CFrame = CFrame.new(location.pos)
+    end
+end
 
-    -- ปุ่ม Toggle
-    local toggleBtn = Instance.new("TextButton")
-    toggleBtn.Parent = ScreenGui
-    toggleBtn.Size = UDim2.new(0, 80, 0, 30)
-    toggleBtn.Position = UDim2.new(0, 20, 0, 20)
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    toggleBtn.TextSize = 18
-    toggleBtn.Text = "Menu"
-    toggleBtn.Font = Enum.Font.SourceSansBold
-    toggleBtn.Active = true
-    toggleBtn.Draggable = true
+local function autoWarpLoop()
+    while autoWarpEnabled do
+        for _, loc in ipairs(locations) do
+            if not autoWarpEnabled then break end
+            warpTo(loc)
+            task.wait(3)
+        end
+        if autoWarpEnabled and player.Character then
+            player.Character:BreakJoints()
+            task.wait(5)
+        end
+    end
+end
 
-    -- Frame เมนูวาร์ป
-    local warpFrame = Instance.new("Frame")
-    warpFrame.Parent = ScreenGui
-    warpFrame.Size = UDim2.new(0, 200, 0, 360)
-    warpFrame.Position = UDim2.new(0, 20, 0, 60)
-    warpFrame.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
-    warpFrame.BackgroundTransparency = 0.1
-    warpFrame.Active = true
-    warpFrame.Draggable = true
-
-    -- หัวข้อเมนู
-    local title = Instance.new("TextLabel")
-    title.Parent = warpFrame
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.BackgroundTransparency = 1
-    title.Text = "Warp Menu"
-    title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 22
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-
-    warpFrame.Visible = true -- เมนูเริ่มโชว์
-
-    -- รายชื่อ Camp
-    local locations = {
-        {type = "part", name = "Checkpoint1", label = "Camp 1"},
-        {type = "part", name = "Checkpoint2", label = "Camp 2"},
-        {type = "part", name = "Checkpoint3", label = "Camp 3"},
-        {type = "part", name = "Checkpoint4", label = "Camp 4"},
-        {type = "part", name = "Checkpoint5", label = "Camp 5"},
-        {type = "pos", pos = Vector3.new(263, 326, 698), label = "Top"},
-    }
-
-    for i, data in ipairs(locations) do
-        local btn = Instance.new("TextButton")
-        btn.Parent = warpFrame
-        btn.Size = UDim2.new(1, -20, 0, 40)
-        btn.Position = UDim2.new(0, 10, 0, 40 + (i-1)*50)
-        btn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.TextSize = 20
-        btn.Font = Enum.Font.SourceSansBold
-        btn.Text = data.label
-
-        btn.MouseButton1Click:Connect(function()
-            if data.type == "part" then
-                local checkpoint = workspace.Checkpoints:FindFirstChild(data.name)
-                if checkpoint and checkpoint:IsA("BasePart") then
-                    hrp.CFrame = checkpoint.CFrame
-                else
-                    warn("ไม่พบ " .. data.label)
-                end
-            elseif data.type == "pos" then
-                hrp.CFrame = CFrame.new(data.pos)
-            end
-        end)
+local function createUI()
+    if player.PlayerGui:FindFirstChild("AutoWarpButton") then
+        player.PlayerGui.AutoWarpButton:Destroy()
     end
 
-    -- ปุ่ม Toggle ซ่อน/โชว์เมนู
-    toggleBtn.MouseButton1Click:Connect(function()
-        warpFrame.Visible = not warpFrame.Visible
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "AutoWarpButton"
+    ScreenGui.Parent = player:WaitForChild("PlayerGui")
+    ScreenGui.ResetOnSpawn = false
+
+    local btn = Instance.new("TextButton")
+    btn.Parent = ScreenGui
+    btn.Size = UDim2.new(0, 140, 0, 40)
+    btn.Position = UDim2.new(0, 20, 0, 20)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 20
+    btn.Font = Enum.Font.SourceSansBold
+    btn.Text = "Auto Tps: OFF"
+
+    btn.MouseButton1Click:Connect(function()
+        autoWarpEnabled = not autoWarpEnabled
+        btn.Text = autoWarpEnabled and "Auto Tps: ON" or "Auto Tps: OFF"
+
+        if autoWarpEnabled then
+            task.spawn(autoWarpLoop)
+        end
     end)
 end
 
--- สร้าง UI ครั้งแรก
 createUI()
-
--- โหลดซ้ำ UI อัตโนมัติหลังตาย
-player.CharacterAdded:Connect(function()
-    task.wait(1) -- รอโหลดตัวละคร
-    createUI()
-end)
