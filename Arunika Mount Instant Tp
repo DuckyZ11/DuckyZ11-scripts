@@ -1,0 +1,81 @@
+local player = game.Players.LocalPlayer
+local autoWarpEnabled = false
+
+-- ตำแหน่งที่ต้องวาร์ป
+local locations = {
+    {type = "part", name = "Checkpoint1", label = "Camp 1"},
+    {type = "part", name = "Checkpoint2", label = "Camp 2"},
+    {type = "part", name = "Checkpoint3", label = "Camp 3"},
+    {type = "part", name = "Checkpoint4", label = "Camp 4"},
+    {type = "part", name = "Checkpoint5", label = "Camp 5"},
+    {type = "pos", pos = Vector3.new(263, 326, 698), label = "Top"},
+}
+
+-- ฟังก์ชันวาร์ป
+local function warpTo(location)
+    local character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character:WaitForChild("HumanoidRootPart")
+    
+    if location.type == "part" then
+        local checkpoint = workspace.Checkpoints:FindFirstChild(location.name)
+        if checkpoint and checkpoint:IsA("BasePart") then
+            hrp.CFrame = checkpoint.CFrame
+        else
+            warn("ไม่พบ " .. location.label)
+        end
+    elseif location.type == "pos" then
+        hrp.CFrame = CFrame.new(location.pos)
+    end
+end
+
+-- ฟังก์ชันทำงานวน
+local function autoWarpLoop()
+    while autoWarpEnabled do
+        for _, loc in ipairs(locations) do
+            if not autoWarpEnabled then break end
+            warpTo(loc)
+            task.wait(3) -- รอ 3 วิ ก่อนวาร์ปต่อ
+        end
+
+        if autoWarpEnabled then
+            -- รีเซ็ตตัวละคร
+            player.Character:BreakJoints()
+            task.wait(5) -- รอให้ตัวละครโหลดใหม่
+        end
+    end
+end
+
+-- สร้าง UI ปุ่ม Toggle
+local function createUI()
+    if player.PlayerGui:FindFirstChild("AutoWarpUI") then
+        player.PlayerGui.AutoWarpUI:Destroy()
+    end
+
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "AutoWarpUI"
+    ScreenGui.Parent = player:WaitForChild("PlayerGui")
+    ScreenGui.ResetOnSpawn = false
+
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Parent = ScreenGui
+    toggleBtn.Size = UDim2.new(0, 150, 0, 40)
+    toggleBtn.Position = UDim2.new(0, 20, 0, 20)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleBtn.TextSize = 20
+    toggleBtn.Font = Enum.Font.SourceSansBold
+    toggleBtn.Text = "Auto Warp: OFF"
+    toggleBtn.Active = true
+    toggleBtn.Draggable = true
+
+    toggleBtn.MouseButton1Click:Connect(function()
+        autoWarpEnabled = not autoWarpEnabled
+        toggleBtn.Text = autoWarpEnabled and "Auto Warp: ON" or "Auto Warp: OFF"
+        
+        if autoWarpEnabled then
+            task.spawn(autoWarpLoop)
+        end
+    end)
+end
+
+createUI()
