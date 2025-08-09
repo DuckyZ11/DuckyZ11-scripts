@@ -23,7 +23,7 @@ local function createUI()
     toggleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     toggleBtn.TextSize = 18
-    toggleBtn.Text = "เมนู"
+    toggleBtn.Text = "Menu"
     toggleBtn.Font = Enum.Font.SourceSansBold
     toggleBtn.Active = true
     toggleBtn.Draggable = true
