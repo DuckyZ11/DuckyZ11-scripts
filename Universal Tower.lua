@@ -12,7 +12,7 @@ end)
 
 local mainTab = DrRayLibrary.newTab("Main", "rbxassetid://6031763426")
 local teleportsTab = DrRayLibrary.newTab("Teleports", "rbxassetid://6031071058")
-local autoFarmTab = DrRayLibrary.newTab("Antistun", "rbxassetid://6031244740")
+local antistunTab = DrRayLibrary.newTab("Antistun", "rbxassetid://6031244740")
 local miscTab = DrRayLibrary.newTab("Misc", "rbxassetid://6031071050")
 
 local player = game.Players.LocalPlayer
@@ -22,18 +22,14 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local PlaceId = game.PlaceId
 
--- Magnet Battery (All Range) from workspace.FX.BatteryModel
+-- Magnet Battery (All Range)
 local magnetBattery = false
 local magnetConnection = nil
-
--- Tween settings
 local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Linear)
 
--- ฟังก์ชันดึงแบต
 local function magnetizeBatteryFromFolder()
     local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-
     local folder = workspace:FindFirstChild("FX") and workspace.FX:FindFirstChild("BatteryModel")
     if folder then
         for _, model in ipairs(folder:GetChildren()) do
@@ -50,7 +46,6 @@ local function magnetizeBatteryFromFolder()
     end
 end
 
--- เวลามีแบตใหม่เพิ่ม
 local function descendantAddedToBatteryModel(desc)
     if desc:IsA("Model") then
         task.wait(0.1)
@@ -61,10 +56,7 @@ end
 mainTab.newToggle("Magnet Battery (All Range)", "ดูดแบตจาก FX/BatteryModel เข้าใกล้ตัว", false, function(state)
     magnetBattery = state
     if state then
-        -- ดึงตอนเปิด
         magnetizeBatteryFromFolder()
-
-        -- ต่อ event ถ้ามีโผล่มาใหม่
         local batteryFolder = workspace:FindFirstChild("FX") and workspace.FX:FindFirstChild("BatteryModel")
         if batteryFolder then
             magnetConnection = batteryFolder.DescendantAdded:Connect(descendantAddedToBatteryModel)
@@ -76,92 +68,76 @@ mainTab.newToggle("Magnet Battery (All Range)", "ดูดแบตจาก FX/
         end
     end
 end)
--- รีเซ็ตตัวละครแล้วยังทำงานต่อ player.CharacterAdded:Connect(function() task.wait(1) if magnetBatteryToggle then for _, obj in ipairs(workspace:GetDescendants()) do if isBatteryModel(obj) then pullBatteryToPlayer(obj) end end end end)
 
--- เพิ่มปุ่ม Tower Event ในแท็บ Main
-local player = game.Players.LocalPlayer
-
+-- ปุ่ม Tower Event
 local function teleportToUnlocked()
     local TowerEvent = workspace:FindFirstChild("TowerEvent")
-    if not TowerEvent then
-        warn("ไม่พบ TowerEvent ใน workspace")
-        return
-    end
-
+    if not TowerEvent then return end
     for _, obj in pairs(TowerEvent:GetDescendants()) do
         if obj:IsA("BillboardGui") then
             local textLabel = obj:FindFirstChild("TextLabel")
             if textLabel and textLabel.Text == "Unlocked!!" then
                 local adornee = obj.Adornee
-                local pos
-                if adornee and adornee:IsA("BasePart") then
-                    pos = adornee.Position
-                elseif obj.Parent and obj.Parent:IsA("BasePart") then
-                    pos = obj.Parent.Position
-                end
+                local pos = adornee and adornee.Position or (obj.Parent:IsA("BasePart") and obj.Parent.Position)
                 if pos then
-                    local character = player.Character or player.CharacterAdded:Wait()
-                    local hrp = character:WaitForChild("HumanoidRootPart")
-                    hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
-                    print("วาปไปที่ Unlocked!!")
+                    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+                    end
                     return
                 end
             end
         end
     end
-    warn("ไม่พบตำแหน่ง 'Unlocked!!' ตอนนี้")
 end
 
-mainTab.newButton("Teleport to Unlocked Tower", "วาปไปตำแหน่ง Unlocked!! ตัวแรกที่เจอ", function()
-    teleportToUnlocked()
-end)
+mainTab.newButton("Teleport to Unlocked Tower", "วาปไปตำแหน่ง Unlocked!!", teleportToUnlocked)
 
 -- TELEPORTS TAB
-local function teleportToPosition(pos, name)
-    if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+local function teleportToPosition(pos)
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         player.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
-        print("Teleported to " .. name)
     end
 end
 
 teleportsTab.newButton("End", "", function()
-    teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61), "End")
+    teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61))
 end)
 
 teleportsTab.newButton("Safezone", "", function()
-    teleportToPosition(Vector3.new(-944.47, 1014.38, 55.65), "Safezone")
+    teleportToPosition(Vector3.new(-944.47, 1014.38, 55.65))
 end)
 
 teleportsTab.newButton("Nearby end", "", function()
-    teleportToPosition(Vector3.new(-657.45, 1505.44, 21.10), "Nearby end")
+    teleportToPosition(Vector3.new(-657.45, 1505.44, 21.10))
 end)
 
 teleportsTab.newButton("Get Unit 1", "", function()
-    teleportToPosition(Vector3.new(-1090.60, 1395.38, 298.34), "Get Unit 1")
+    teleportToPosition(Vector3.new(-1090.60, 1395.38, 298.34))
 end)
 
 teleportsTab.newButton("Get Unit 2", "", function()
-    teleportToPosition(Vector3.new(-1318.05, 1240.66, -37.35), "Get Unit 2")
+    teleportToPosition(Vector3.new(-1318.05, 1240.66, -37.35))
 end)
 
 teleportsTab.newButton("Get Unit 3", "", function()
-    teleportToPosition(Vector3.new(-941.67, 1263.38, -167.66), "Get Unit 3")
+    teleportToPosition(Vector3.new(-941.67, 1263.38, -167.66))
 end)
 
 teleportsTab.newButton("Get Unit 4", "", function()
-    teleportToPosition(Vector3.new(-1203.99, 1365.39, -90.20), "Get Unit 4")
+    teleportToPosition(Vector3.new(-1203.99, 1365.39, -90.20))
 end)
 
 teleportsTab.newButton("Get Unit 5", "", function()
-    teleportToPosition(Vector3.new(-945.93, 1014.38, 170.06), "Get Unit 5")
+    teleportToPosition(Vector3.new(-945.93, 1014.38, 170.06))
 end)
 
 teleportsTab.newButton("Get Unit 6", "", function()
-    teleportToPosition(Vector3.new(-1186.58, 1240.68, 191.17), "Get Unit 6")
+    teleportToPosition(Vector3.new(-1186.58, 1240.68, 191.17))
 end)
 
 teleportsTab.newButton("Get Unit 7", "", function()
-    teleportToPosition(Vector3.new(-995.53, 1365.56, -286.45), "Get Unit 7")
+    teleportToPosition(Vector3.new(-995.53, 1365.56, -286.45))
 end)
 
 -- Antistun
@@ -170,7 +146,6 @@ antistunTab.newButton("Click 1 time", "กันสตั้น", function()
 end)
 
 -- MISC TAB
--- Kill Yourself
 miscTab.newButton("Kill Yourself", "", function()
     local h = player.Character and player.Character:FindFirstChild("Humanoid")
     if h then
@@ -178,40 +153,13 @@ miscTab.newButton("Kill Yourself", "", function()
     end
 end)
 
--- WalkSpeed Input + Toggle
-local walkSpeedValue = getgenv().SavedWalkSpeed or 16
-local walkSpeedToggleState = false
-
-miscTab.newInput("Set WalkSpeed", "กรอกเลขความเร็วเดิน", tostring(walkSpeedValue), function(text)
-    local num = tonumber(text)
-    if num and num >= 0 and num <= 500 then
-        walkSpeedValue = num
-        getgenv().SavedWalkSpeed = num
-        if walkSpeedToggleState then
-            local h = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-            if h then
-                h.WalkSpeed = walkSpeedValue
-            end
-        end
-    end
-end)
-
-miscTab.newToggle("Enable WalkSpeed", "เปิด/ปิดความเร็ว", walkSpeedToggleState, function(state)
-    walkSpeedToggleState = state
-    local h = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-    if h then
-        h.WalkSpeed = state and walkSpeedValue or 16
-    end
-end)
-
--- NoClip Toggle
+-- NoClip
 local noclipParts, noclipConn = {}, nil
-
 miscTab.newToggle("No-Clip", "ทะลุกำแพง", false, function(state)
     if state then
         noclipConn = RunService.Stepped:Connect(function()
             for _, part in pairs(player.Character:GetChildren()) do
-                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.CanCollide then
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
                     part.CanCollide = false
                     table.insert(noclipParts, part)
                 end
@@ -233,7 +181,6 @@ end)
 
 -- Infinite Jump
 local infJump = false
-
 miscTab.newToggle("Infinite Jump", "กระโดดไม่จำกัด", false, function(state)
     infJump = state
 end)
