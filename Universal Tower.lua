@@ -12,7 +12,7 @@ end)
 
 local mainTab = DrRayLibrary.newTab("Main", "rbxassetid://6031763426")
 local teleportsTab = DrRayLibrary.newTab("Teleports", "rbxassetid://6031071058")
-local autoFarmTab = DrRayLibrary.newTab("Auto Farm", "rbxassetid://6031244740")
+local autoFarmTab = DrRayLibrary.newTab("Antistun", "rbxassetid://6031244740")
 local miscTab = DrRayLibrary.newTab("Misc", "rbxassetid://6031071050")
 
 local player = game.Players.LocalPlayer
@@ -164,87 +164,10 @@ teleportsTab.newButton("Get Unit 7", "", function()
     teleportToPosition(Vector3.new(-995.53, 1365.56, -286.45), "Get Unit 7")
 end)
 
--- AUTO FARM TAB
-autoFarmTab.newLabel("🌀 Loop: Leave the game to stop")
-autoFarmTab.newLabel("📘 Tutorial: ฟีเจอร์นี้จะทำงานซ้ำไปเรื่อย ๆ จนกว่าคุณจะออกจากเกม")
-
-autoFarmTab.newButton("Auto Farm Win (Loop)", "ฟาร์ม Win วนลูปอัตโนมัติ", function()
-    local success, err = pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Auto%20farm%20win%20ut.lua"))()
-    end)
-    if not success then
-        warn("โหลด Auto Farm Win (Loop) ไม่สำเร็จ: " .. tostring(err))
-    end
+-- Antistun
+antistunTab.newButton("Click 1 time", "กันสตั้น", function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower%20Anti%20Stuns"))()
 end)
-
-local autoFarmCode = [[
-local Players = game:GetService("Players")
-local TeleportService = game:GetService("TeleportService")
-local RunService = game:GetService("RunService")
-
-local player = Players.LocalPlayer
-local placeId = game.PlaceId
-
--- รอตัวละครโหลด
-local function waitForCharacter()
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-        player.CharacterAdded:Wait()
-        repeat task.wait() until player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    end
-end
-
--- วาร์ปไปตำแหน่ง End
-local function teleportToEnd()
-    waitForCharacter()
-    local hrp = player.Character:WaitForChild("HumanoidRootPart")
-    hrp.CFrame = CFrame.new(-645.96, 1505.44, 21.61)
-    print("[AutoFarm] วาร์ปไป End แล้ว")
-end
-
--- เดินไปทางขวา
-local function walkRightFor(seconds)
-    local connection = RunService.RenderStepped:Connect(function()
-        player:Move(Vector3.new(1, 0, 0), true)
-    end)
-    task.wait(seconds)
-    connection:Disconnect()
-    player:Move(Vector3.zero, false)
-end
-
--- วนลูปฟาร์ม
-local function autoFarmLoop()
-    print("[AutoFarm] เริ่มทำงานวนลูป...")
-    while true do
-        print("[AutoFarm] รอโหลดแมพ 6 วิ")
-        task.wait(6)
-
-        teleportToEnd()
-        task.wait(2)
-
-        walkRightFor(0.4)
-
-        print("[AutoFarm] รอรับ Win 2 วิ")
-        task.wait(2)
-
-        print("[AutoFarm] รีจอย...")
-        queue_on_teleport(script.Source)
-        TeleportService:Teleport(PlaceId)
-        break
-    end
-end
-
-autoFarmLoop()
-]]
-
-autoFarmTab.newButton("Copy Script for Auto Execute (Delta)", "กดเพื่อคัดลอกโค้ดไปวางใน Auto Execute (Delta)", function()
-    if setclipboard then
-        setclipboard(autoFarmCode)
-        print("[AutoFarm] คัดลอกโค้ดฟาร์มเข้าสู่คลิปบอร์ดแล้ว")
-    else
-        warn("ไม่รองรับฟังก์ชัน setclipboard บนเครื่องนี้")
-    end
-end)
-autoFarmTab.newLabel("Copy this and put it on auto execute (Delta)")
 
 -- MISC TAB
 -- Kill Yourself
