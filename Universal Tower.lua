@@ -79,27 +79,41 @@ end)
 -- รีเซ็ตตัวละครแล้วยังทำงานต่อ player.CharacterAdded:Connect(function() task.wait(1) if magnetBatteryToggle then for _, obj in ipairs(workspace:GetDescendants()) do if isBatteryModel(obj) then pullBatteryToPlayer(obj) end end end end)
 
 -- เพิ่มปุ่ม Tower Event ในแท็บ Main
-mainTab.newButton("Tower Event", "วาร์ปไปจุด Tower Event พิเศษ", function()
-    local towerEvent = workspace:FindFirstChild("TowerEvent")
-    if towerEvent then
-        local specialWeek = towerEvent:FindFirstChild("Special Week")
-        if specialWeek and specialWeek:FindFirstChild("Special Week") then
-            local block = specialWeek["Special Week"]:FindFirstChild("Block")
-            if block and block:IsA("BasePart") then
-                local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    hrp.CFrame = block.CFrame + Vector3.new(0, 5, 0)
-                    print("[TowerEvent] Teleported to Tower Event Block")
-                end
-            else
-                warn("[TowerEvent] ไม่พบ Block ภายใน Special Week")
-            end
-        else
-            warn("[TowerEvent] ไม่พบ Special Week -> Special Week")
-        end
-    else
-        warn("[TowerEvent] ไม่พบ TowerEvent ใน workspace")
+local player = game.Players.LocalPlayer
+
+local function teleportToUnlocked()
+    local TowerEvent = workspace:FindFirstChild("TowerEvent")
+    if not TowerEvent then
+        warn("ไม่พบ TowerEvent ใน workspace")
+        return
     end
+
+    for _, obj in pairs(TowerEvent:GetDescendants()) do
+        if obj:IsA("BillboardGui") then
+            local textLabel = obj:FindFirstChild("TextLabel")
+            if textLabel and textLabel.Text == "Unlocked!!" then
+                local adornee = obj.Adornee
+                local pos
+                if adornee and adornee:IsA("BasePart") then
+                    pos = adornee.Position
+                elseif obj.Parent and obj.Parent:IsA("BasePart") then
+                    pos = obj.Parent.Position
+                end
+                if pos then
+                    local character = player.Character or player.CharacterAdded:Wait()
+                    local hrp = character:WaitForChild("HumanoidRootPart")
+                    hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+                    print("วาปไปที่ Unlocked!!")
+                    return
+                end
+            end
+        end
+    end
+    warn("ไม่พบตำแหน่ง 'Unlocked!!' ตอนนี้")
+end
+
+mainTab.newButton("Teleport to Unlocked Tower", "วาปไปตำแหน่ง Unlocked!! ตัวแรกที่เจอ", function()
+    teleportToUnlocked()
 end)
 
 -- TELEPORTS TAB
