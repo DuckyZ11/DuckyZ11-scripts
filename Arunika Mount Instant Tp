@@ -1,7 +1,6 @@
 local player = game.Players.LocalPlayer
 local autoWarpEnabled = false
 
--- ตำแหน่งที่ต้องวาร์ป
 local locations = {
     {type = "part", name = "Checkpoint1", label = "Camp 1"},
     {type = "part", name = "Checkpoint2", label = "Camp 2"},
@@ -11,69 +10,191 @@ local locations = {
     {type = "pos", pos = Vector3.new(263, 326, 698), label = "Top"},
 }
 
--- ฟังก์ชันวาร์ป
+local function walkForwardSteps(hrp, steps, stepDistance, delay)
+    for i = 1, steps do
+        if hrp then
+            local forwardVector = hrp.CFrame.LookVector
+            local newPos = hrp.Position + forwardVector * stepDistance
+            hrp.CFrame = CFrame.new(newPos, newPos + forwardVector)
+        end
+        task.wait(delay)
+    end
+end
+
 local function warpTo(location)
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:WaitForChild("HumanoidRootPart")
-    
+
     if location.type == "part" then
         local checkpoint = workspace.Checkpoints:FindFirstChild(location.name)
         if checkpoint and checkpoint:IsA("BasePart") then
             hrp.CFrame = checkpoint.CFrame
         else
             warn("ไม่พบ " .. location.label)
+            return false
         end
     elseif location.type == "pos" then
         hrp.CFrame = CFrame.new(location.pos)
     end
+
+    task.wait(0.3)
+
+    walkForwardSteps(hrp, 2, 3, 0.5)
+
+    return true
 end
 
--- ฟังก์ชันทำงานวน
 local function autoWarpLoop()
     while autoWarpEnabled do
-        for _, loc in ipairs(locations) do
+        local character = player.Character or player.CharacterAdded:Wait()
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+
+        for i, loc in ipairs(locations) do
             if not autoWarpEnabled then break end
-            warpTo(loc)
-            task.wait(3) -- รอ 3 วิ ก่อนวาร์ปต่อ
+            local success = warpTo(loc)
+            if not success then
+                warn("วาปไป " .. loc.label .. " ไม่สำเร็จ! หยุดลูป")
+                autoWarpEnabled = false
+                break
+            end
+
+            task.wait(4)
+
+            if i == #locations then
+                task.wait(2)
+            end
         end
 
-        if autoWarpEnabled then
-            -- รีเซ็ตตัวละคร
+        if autoWarpEnabled and player.Character then
             player.Character:BreakJoints()
-            task.wait(5) -- รอให้ตัวละครโหลดใหม่
+            task.wait(5)
         end
     end
 end
 
--- สร้าง UI ปุ่ม Toggle
 local function createUI()
-    if player.PlayerGui:FindFirstChild("AutoWarpUI") then
-        player.PlayerGui.AutoWarpUI:Destroy()
+    if player.PlayerGui:FindFirstChild("AutoWarpButton") then
+        player.PlayerGui.AutoWarpButton:Destroy()
     end
 
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "AutoWarpUI"
+    ScreenGui.Name = "AutoWarpButton"
     ScreenGui.Parent = player:WaitForChild("PlayerGui")
     ScreenGui.ResetOnSpawn = false
 
-    local toggleBtn = Instance.new("TextButton")
-    toggleBtn.Parent = ScreenGui
-    toggleBtn.Size = UDim2.new(0, 150, 0, 40)
-    toggleBtn.Position = UDim2.new(0, 20, 0, 20)
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    toggleBtn.TextSize = 20
-    toggleBtn.Font = Enum.Font.SourceSansBold
-    toggleBtn.Text = "Auto Warp: OFF"
-    toggleBtn.Active = true
-    toggleBtn.Draggable = true
+    local btn = Instance.new("TextButton")
+    btn.Parent = ScreenGui
+    btn.Size = UDim2.new(0, 140, 0, 40)
+    btn.Position = UDim2.new(0, 20, 0, 20)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 20
+    btn.Font = Enum.Font.SourceSansBold
+    btn.Text = "Auto Tps: OFF"
 
-    toggleBtn.MouseButton1Click:Connect(function()
+    local timerLabel = Instance.new("TextLabel")
+    timerLabel.Parent = ScreenGui
+    timerLabel.Size = UDim2.new(0, 140, 0, 25)
+    timerLabel.Position = UDim2.new(0, 20, 0, 65)
+    timerLabel.BackgroundTransparency = 1
+    timerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    timerLabel.TextSize = 18
+    timerLabel.Font = Enum.Font.SourceSans
+    timerLabel.Text = "Timer: 10:00"
+    timerLabel.Visible = false
+
+    -- ฟังก์ชันแปลง HSV เป็น RGB สำหรับสีรุ้ง
+    local function HSVToRGB(h, s, v)
+        local c = v * s
+        local x = c * (1 - math.abs((h * 6) % 2 - 1))
+        local m = v - c
+        local r, g, b = 0, 0, 0
+
+        if h < 1/6 then
+            r, g, b = c, x, 0
+        elseif h < 2/6 then
+            r, g, b = x, c, 0
+        elseif h < 3/6 then
+            r, g, b = 0, c, x
+        elseif h < 4/6 then
+            r, g, b = 0, x, c
+        elseif h < 5/6 then
+            r, g, b = x, 0, c
+        else
+            r, g, b = c, 0, x
+        end
+
+        return Color3.new(r + m, g + m, b + m)
+    end
+
+    -- แจ้งเตือนข้อความสีรุ้งเด้งกลางจอ
+    local function showRainbowAlert(message, duration)
+        local alert = Instance.new("TextLabel")
+        alert.Name = "AlertMessage"
+        alert.Parent = ScreenGui
+        alert.Size = UDim2.new(0, 400, 0, 50)
+        alert.Position = UDim2.new(0.5, -200, 0.5, -25)
+        alert.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
+        alert.BackgroundTransparency = 0.3
+        alert.TextColor3 = Color3.fromRGB(255, 255, 255) -- จะถูกแทนที่ด้วยสีรุ้ง
+        alert.TextStrokeTransparency = 0
+        alert.TextSize = 24
+        alert.Font = Enum.Font.SourceSansBold
+        alert.Text = message
+        alert.TextWrapped = true
+        alert.ZIndex = 1000
+
+        local hue = 0
+        local running = true
+        task.spawn(function()
+            while running do
+                alert.TextColor3 = HSVToRGB(hue, 1, 1)
+                hue = (hue + 0.01) % 1
+                task.wait(0.05)
+            end
+        end)
+
+        task.delay(duration, function()
+            running = false
+            if alert and alert.Parent then
+                alert:Destroy()
+            end
+        end)
+    end
+
+    local function startTimer(duration)
+        timerLabel.Visible = true
+        local timeLeft = duration
+        while timeLeft >= 0 and autoWarpEnabled do
+            local minutes = math.floor(timeLeft / 60)
+            local seconds = timeLeft % 60
+            timerLabel.Text = string.format("Timer: %02d:%02d", minutes, seconds)
+            task.wait(1)
+            timeLeft = timeLeft - 1
+        end
+        if not autoWarpEnabled then
+            timerLabel.Visible = false
+        end
+    end
+
+    btn.MouseButton1Click:Connect(function()
         autoWarpEnabled = not autoWarpEnabled
-        toggleBtn.Text = autoWarpEnabled and "Auto Warp: ON" or "Auto Warp: OFF"
-        
+        btn.Text = autoWarpEnabled and "Auto Tps: ON" or "Auto Tps: OFF"
+
         if autoWarpEnabled then
             task.spawn(autoWarpLoop)
+            task.spawn(function()
+                startTimer(600) -- 10 นาที = 600 วินาที
+            end)
+            task.delay(10, function() -- แจ้งเตือนเด้งหลังรัน 10 วิ
+                if autoWarpEnabled then
+                    showRainbowAlert("You need to play the game at least 10 mins before auto farm", 5)
+                end
+            end)
+        else
+            timerLabel.Visible = false
+            local alert = ScreenGui:FindFirstChild("AlertMessage")
+            if alert then alert:Destroy() end
         end
     end)
 end
