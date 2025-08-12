@@ -1,0 +1,83 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+local normalWalkSpeed = 16
+local normalJumpPower = 50
+
+local function antiStatusFixes(char)
+    if not char then return end
+
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+
+    if humanoid then
+        -- ป้องกันโดนลด WalkSpeed / JumpPower
+        if humanoid.WalkSpeed < normalWalkSpeed then
+            humanoid.WalkSpeed = normalWalkSpeed
+        end
+        if humanoid.JumpPower < normalJumpPower then
+            humanoid.JumpPower = normalJumpPower
+        end
+
+        humanoid.AutoRotate = true
+
+        -- ถ้าโดน Physics (ล็อค) ให้เปลี่ยนเป็น Running
+        local state = humanoid:GetState()
+        if state == Enum.HumanoidStateType.Physics 
+           or state == Enum.HumanoidStateType.FallingDown 
+           or state == Enum.HumanoidStateType.GettingUp then
+            humanoid:ChangeState(Enum.HumanoidStateType.Running)
+        end
+    end
+
+    -- ปลด Anchor ถ้าโดนล็อค Anchor
+    if hrp and hrp.Anchored then
+        hrp.Anchored = false
+    end
+
+    -- ลบ Stun / Stuns ที่ติดมากับตัวละคร
+    for _, v in pairs(char:GetChildren()) do
+        if v.Name:lower() == "stun" or v.Name:lower() == "stuns" then
+            v:Destroy()
+        end
+    end
+
+    -- ลบ Constraints ที่อาจทำให้ Ragdoll หรือล็อคตัว
+    for _, v in pairs(char:GetDescendants()) do
+        if v:IsA("BallSocketConstraint") or v:IsA("HingeConstraint") or v:IsA("RodConstraint") then
+            v:Destroy()
+        elseif v:IsA("Motor6D") then
+            v.Enabled = true
+        end
+    end
+
+    -- เคลียร์ attribute ragdoll
+    if char:GetAttribute("Ragdoll") then
+        char:SetAttribute("Ragdoll", nil)
+    end
+
+    -- ลบ BodyVelocity, BodyPosition, Stun (Knockback) ออกจากตัวละคร
+    for _, obj in pairs(char:GetDescendants()) do
+        if obj.Name == "BodyVelocity" or obj.Name == "BodyPosition" or obj.Name == "Stun" then
+            obj:Destroy()
+        end
+    end
+end
+
+-- เช็คทุกเฟรมให้แน่ใจว่าไม่โดนล็อค/สตัน/หยุดเวลา/knockback
+RunService.Heartbeat:Connect(function()
+    local char = player.Character
+    if char and char.Parent then
+        antiStatusFixes(char)
+    end
+end)
+
+player.CharacterAdded:Connect(function(char)
+    char:WaitForChild("Humanoid")
+    RunService.Heartbeat:Connect(function()
+        if char and char.Parent then
+            antiStatusFixes(char)
+        end
+    end)
+end)
