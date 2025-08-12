@@ -101,7 +101,7 @@ local function createUI()
     timerLabel.TextSize = 18
     timerLabel.Font = Enum.Font.SourceSans
     timerLabel.Text = "Timer: 10:00"
-    timerLabel.Visible = false
+    timerLabel.Visible = true  -- แสดงตลอด ไม่ซ่อน
 
     -- ฟังก์ชันแปลง HSV เป็น RGB สำหรับสีรุ้ง
     local function HSVToRGB(h, s, v)
@@ -165,15 +165,12 @@ local function createUI()
     local function startTimer(duration)
         timerLabel.Visible = true
         local timeLeft = duration
-        while timeLeft >= 0 and autoWarpEnabled do
+        while timeLeft >= 0 do
             local minutes = math.floor(timeLeft / 60)
             local seconds = timeLeft % 60
             timerLabel.Text = string.format("Timer: %02d:%02d", minutes, seconds)
             task.wait(1)
             timeLeft = timeLeft - 1
-        end
-        if not autoWarpEnabled then
-            timerLabel.Visible = false
         end
     end
 
@@ -183,19 +180,15 @@ local function createUI()
 
         if autoWarpEnabled then
             task.spawn(autoWarpLoop)
-            task.spawn(function()
-                startTimer(600) -- 10 นาที = 600 วินาที
-            end)
-            task.delay(10, function() -- แจ้งเตือนเด้งหลังรัน 10 วิ
-                if autoWarpEnabled then
-                    showRainbowAlert("You need to play the game at least 10 mins before auto farm", 5)
-                end
-            end)
-        else
-            timerLabel.Visible = false
-            local alert = ScreenGui:FindFirstChild("AlertMessage")
-            if alert then alert:Destroy() end
         end
+    end)
+
+    -- แจ้งเตือนและเริ่มนับถอยหลังทันทีตอนโหลดสคริปต์
+    task.spawn(function()
+        showRainbowAlert("You need to play the game at least 10 mins before auto farm", 5)
+    end)
+    task.spawn(function()
+        startTimer(600) -- 10 นาที = 600 วินาที
     end)
 end
 
