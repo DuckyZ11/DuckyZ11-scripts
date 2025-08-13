@@ -87,6 +87,51 @@ mainTab.newToggle("Magnet Battery (All Range)", "ดูดแบตจาก FX/
     end
 end)
 
+-- Auto Tower
+local autoTowerEnabled = false
+local autoTowerConnection = nil
+
+local function autoTowerFunction()
+    local TowerEvent = workspace:FindFirstChild("TowerEvent")
+    if not TowerEvent then return end
+
+    local character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character:WaitForChild("HumanoidRootPart")
+
+    for _, obj in pairs(TowerEvent:GetDescendants()) do
+        if obj:IsA("BillboardGui") then
+            local textLabel = obj:FindFirstChild("TextLabel")
+            if textLabel and textLabel.Text == "Unlocked!!" then
+                local adornee = obj.Adornee
+                local pos
+                if adornee and adornee:IsA("BasePart") then
+                    pos = adornee.Position
+                elseif obj.Parent and obj.Parent:IsA("BasePart") then
+                    pos = obj.Parent.Position
+                end
+                if pos then
+                    hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+                    break
+                end
+            end
+        end
+    end
+end
+
+mainTab.newToggle("Auto Tower", "วาปไปที่ Unlocked Tower อัตโนมัติ", false, function(state)
+    autoTowerEnabled = state
+    if state then
+        autoTowerConnection = RunService.Heartbeat:Connect(function()
+            autoTowerFunction()
+        end)
+    else
+        if autoTowerConnection then
+            autoTowerConnection:Disconnect()
+            autoTowerConnection = nil
+        end
+    end
+end)
+
 -- Teleports Tab
 local function teleportToPosition(pos, name)
     if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -135,7 +180,7 @@ teleportsTab.newButton("Get Unit 7", "", function()
     teleportToPosition(Vector3.new(-995.53, 1365.56, -286.45), "Get Unit 7")
 end)
 
--- ฟังก์ชันลบเอฟเฟคบอสธานอส
+-- Anti Thanos Boss Effect Clear
 local FX_upvr = workspace:FindFirstChild("FX")
 local BossThanos_upvr = game:GetService("ReplicatedStorage"):FindFirstChild("Asset"):FindFirstChild("FX"):FindFirstChild("BossThanos")
 
@@ -148,7 +193,7 @@ local function ClearBossEffects()
     end
 end
 
--- Anti Stun Button (กดโหลดสคริปต์กันสตั้น)
+-- Anti Stun Button
 antistunTab.newButton("Anti Stun", "กันสตั้นแบบกดครั้งเดียว", function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower%20Anti%20Stuns"))()
 end)
@@ -203,7 +248,7 @@ antistunTab.newToggle("Anti Thanos Player", "กันสกิลคลิก�
     end
 end)
 
--- MISC TAB ตัวอย่าง
+-- MISC TAB
 miscTab.newButton("Kill Yourself", "", function()
     local h = player.Character and player.Character:FindFirstChild("Humanoid")
     if h then
