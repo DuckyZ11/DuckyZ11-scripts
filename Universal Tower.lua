@@ -12,7 +12,7 @@ end)
 
 local mainTab = DrRayLibrary.newTab("Main", "rbxassetid://6031763426")
 local teleportsTab = DrRayLibrary.newTab("Teleports", "rbxassetid://6031071058")
-local antistunTab = DrRayLibrary.newTab("Antistun", "rbxassetid://6031244740")
+local antistunTab = DrRayLibrary.newTab("Antistun", "rbxassetid://6031244740") -- แท็บเดียวสำหรับกันสตั้น + Anti Thanos
 local miscTab = DrRayLibrary.newTab("Misc", "rbxassetid://6031071050")
 
 local player = game.Players.LocalPlayer
@@ -22,7 +22,7 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local PlaceId = game.PlaceId
 
--- Magnet Battery (All Range)
+-- Magnet Battery (All Range) from workspace.FX.BatteryModel and ReplicatedStorage.AssetBossFight.Battery
 local magnetBattery = false
 local magnetConnection = nil
 local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Linear)
@@ -30,9 +30,27 @@ local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Linear)
 local function magnetizeBatteryFromFolder()
     local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-    local folder = workspace:FindFirstChild("FX") and workspace.FX:FindFirstChild("BatteryModel")
-    if folder then
-        for _, model in ipairs(folder:GetChildren()) do
+
+    -- ดูดจาก workspace.FX.BatteryModel
+    local folder1 = workspace:FindFirstChild("FX") and workspace.FX:FindFirstChild("BatteryModel")
+    if folder1 then
+        for _, model in ipairs(folder1:GetChildren()) do
+            if model:IsA("Model") then
+                local primary = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+                if primary then
+                    local tween = TweenService:Create(primary, tweenInfo, {
+                        CFrame = hrp.CFrame + Vector3.new(0, 3, 0)
+                    })
+                    tween:Play()
+                end
+            end
+        end
+    end
+
+    -- ดูดจาก ReplicatedStorage.AssetBossFight.Battery
+    local folder2 = game:GetService("ReplicatedStorage"):FindFirstChild("AssetBossFight") and game:GetService("ReplicatedStorage").AssetBossFight:FindFirstChild("Battery")
+    if folder2 then
+        for _, model in ipairs(folder2:GetChildren()) do
             if model:IsA("Model") then
                 local primary = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
                 if primary then
@@ -53,13 +71,17 @@ local function descendantAddedToBatteryModel(desc)
     end
 end
 
-mainTab.newToggle("Magnet Battery (All Range)", "ดูดแบตจาก FX/BatteryModel เข้าใกล้ตัว", false, function(state)
+mainTab.newToggle("Magnet Battery (All Range)", "ดูดแบตจาก FX/BatteryModel และ ReplicatedStorage เข้าใกล้ตัว", false, function(state)
     magnetBattery = state
     if state then
         magnetizeBatteryFromFolder()
-        local batteryFolder = workspace:FindFirstChild("FX") and workspace.FX:FindFirstChild("BatteryModel")
-        if batteryFolder then
-            magnetConnection = batteryFolder.DescendantAdded:Connect(descendantAddedToBatteryModel)
+        local batteryFolder1 = workspace:FindFirstChild("FX") and workspace.FX:FindFirstChild("BatteryModel")
+        if batteryFolder1 then
+            magnetConnection = batteryFolder1.DescendantAdded:Connect(descendantAddedToBatteryModel)
+        end
+        local batteryFolder2 = game:GetService("ReplicatedStorage"):FindFirstChild("AssetBossFight") and game:GetService("ReplicatedStorage").AssetBossFight:FindFirstChild("Battery")
+        if batteryFolder2 and not magnetConnection then
+            magnetConnection = batteryFolder2.DescendantAdded:Connect(descendantAddedToBatteryModel)
         end
     else
         if magnetConnection then
@@ -69,80 +91,125 @@ mainTab.newToggle("Magnet Battery (All Range)", "ดูดแบตจาก FX/
     end
 end)
 
--- ปุ่ม Tower Event
+-- เพิ่มปุ่ม Tower Event ในแท็บ Main
 local function teleportToUnlocked()
     local TowerEvent = workspace:FindFirstChild("TowerEvent")
-    if not TowerEvent then return end
+    if not TowerEvent then
+        warn("ไม่พบ TowerEvent ใน workspace")
+        return
+    end
+
     for _, obj in pairs(TowerEvent:GetDescendants()) do
         if obj:IsA("BillboardGui") then
             local textLabel = obj:FindFirstChild("TextLabel")
             if textLabel and textLabel.Text == "Unlocked!!" then
                 local adornee = obj.Adornee
-                local pos = adornee and adornee.Position or (obj.Parent:IsA("BasePart") and obj.Parent.Position)
+                local pos
+                if adornee and adornee:IsA("BasePart") then
+                    pos = adornee.Position
+                elseif obj.Parent and obj.Parent:IsA("BasePart") then
+                    pos = obj.Parent.Position
+                end
                 if pos then
-                    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
-                    end
+                    local character = player.Character or player.CharacterAdded:Wait()
+                    local hrp = character:WaitForChild("HumanoidRootPart")
+                    hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+                    print("วาปไปที่ Unlocked!!")
                     return
                 end
             end
         end
     end
+    warn("ไม่พบตำแหน่ง 'Unlocked!!' ตอนนี้")
 end
 
-mainTab.newButton("Teleport to Unlocked Tower", "วาปไปตำแหน่ง Unlocked!!", teleportToUnlocked)
+mainTab.newButton("Teleport to Unlocked Tower", "วาปไปตำแหน่ง Unlocked!! ตัวแรกที่เจอ", function()
+    teleportToUnlocked()
+end)
 
 -- TELEPORTS TAB
-local function teleportToPosition(pos)
-    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+local function teleportToPosition(pos, name)
+    if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         player.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+        print("Teleported to " .. name)
     end
 end
 
 teleportsTab.newButton("End", "", function()
-    teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61))
+    teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61), "End")
 end)
 
 teleportsTab.newButton("Safezone", "", function()
-    teleportToPosition(Vector3.new(-944.47, 1014.38, 55.65))
+    teleportToPosition(Vector3.new(-944.47, 1014.38, 55.65), "Safezone")
 end)
 
 teleportsTab.newButton("Nearby end", "", function()
-    teleportToPosition(Vector3.new(-657.45, 1505.44, 21.10))
+    teleportToPosition(Vector3.new(-657.45, 1505.44, 21.10), "Nearby end")
 end)
 
 teleportsTab.newButton("Get Unit 1", "", function()
-    teleportToPosition(Vector3.new(-1090.60, 1395.38, 298.34))
+    teleportToPosition(Vector3.new(-1090.60, 1395.38, 298.34), "Get Unit 1")
 end)
 
 teleportsTab.newButton("Get Unit 2", "", function()
-    teleportToPosition(Vector3.new(-1318.05, 1240.66, -37.35))
+    teleportToPosition(Vector3.new(-1318.05, 1240.66, -37.35), "Get Unit 2")
 end)
 
 teleportsTab.newButton("Get Unit 3", "", function()
-    teleportToPosition(Vector3.new(-941.67, 1263.38, -167.66))
+    teleportToPosition(Vector3.new(-941.67, 1263.38, -167.66), "Get Unit 3")
 end)
 
 teleportsTab.newButton("Get Unit 4", "", function()
-    teleportToPosition(Vector3.new(-1203.99, 1365.39, -90.20))
+    teleportToPosition(Vector3.new(-1203.99, 1365.39, -90.20), "Get Unit 4")
 end)
 
 teleportsTab.newButton("Get Unit 5", "", function()
-    teleportToPosition(Vector3.new(-945.93, 1014.38, 170.06))
+    teleportToPosition(Vector3.new(-945.93, 1014.38, 170.06), "Get Unit 5")
 end)
 
 teleportsTab.newButton("Get Unit 6", "", function()
-    teleportToPosition(Vector3.new(-1186.58, 1240.68, 191.17))
+    teleportToPosition(Vector3.new(-1186.58, 1240.68, 191.17), "Get Unit 6")
 end)
 
 teleportsTab.newButton("Get Unit 7", "", function()
-    teleportToPosition(Vector3.new(-995.53, 1365.56, -286.45))
+    teleportToPosition(Vector3.new(-995.53, 1365.56, -286.45), "Get Unit 7")
 end)
 
--- Antistun
-antistunTab.newButton("Click 1 time", "กันสตั้น", function()
+-- Antistun Tab Buttons
+antistunTab.newButton("Antistuns", "กันสตั้น", function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower%20Anti%20Stuns"))()
+end)
+
+antistunTab.newButton("Anti Thanos", "กันสกิลบอสธานอส", function()
+    -- ลบสกิลบอสธานอสและเอฟเฟคออกทั้งหมด
+    -- โค้ดลบสกิลบอสธานอสที่คุณส่งมา
+    local TweenService_upvr = game:GetService("TweenService")
+    local FX_upvr = workspace.FX
+    local BossThanos_upvr = game:GetService("ReplicatedStorage").Asset.FX.BossThanos
+
+    local Debris_upvr = game:GetService("Debris")
+    local function DestroyAfter(arg1, arg2)
+        Debris_upvr:AddItem(arg1, arg2)
+    end
+
+    -- ฟังก์ชันลบสกิลและเอฟเฟคทั้งหมด
+    local function cancel(arg1)
+        if arg1 then
+            task.cancel(arg1)
+        end
+    end
+
+    -- ลบพวก effect ต่างๆ ที่ boss Thanos สร้างขึ้นมา
+    for _, child in pairs(FX_upvr:GetChildren()) do
+        if child.Name:match("Power") or child.Name == "Meteor" or child.Name == "Lighting" or child.Name == "Warning" or child.Name == "Lava" then
+            child:Destroy()
+        end
+    end
+
+    -- ปิด event ต่าง ๆ ที่เกี่ยวข้อง (ถ้ามี)
+    -- (ถ้าต้องการปิดอย่างอื่นเพิ่ม แจ้งได้นะครับ)
+
+    print("Anti Thanos activated: ลบสกิลบอสธานอสและเอฟเฟคเรียบร้อย")
 end)
 
 -- MISC TAB
@@ -153,13 +220,14 @@ miscTab.newButton("Kill Yourself", "", function()
     end
 end)
 
--- NoClip
+-- NoClip Toggle
 local noclipParts, noclipConn = {}, nil
+
 miscTab.newToggle("No-Clip", "ทะลุกำแพง", false, function(state)
     if state then
         noclipConn = RunService.Stepped:Connect(function()
             for _, part in pairs(player.Character:GetChildren()) do
-                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.CanCollide then
                     part.CanCollide = false
                     table.insert(noclipParts, part)
                 end
@@ -181,6 +249,7 @@ end)
 
 -- Infinite Jump
 local infJump = false
+
 miscTab.newToggle("Infinite Jump", "กระโดดไม่จำกัด", false, function(state)
     infJump = state
 end)
