@@ -87,10 +87,7 @@ mainTab.newToggle("Magnet Battery (All Range)", "ดูดแบตจาก FX/
     end
 end)
 
--- Auto Tower
-local autoTowerEnabled = false
-local autoTowerConnection = nil
-
+-- Auto Tower Function (ให้กดแล้ววาปไป)
 local function autoTowerFunction()
     local TowerEvent = workspace:FindFirstChild("TowerEvent")
     if not TowerEvent then return end
@@ -118,18 +115,8 @@ local function autoTowerFunction()
     end
 end
 
-mainTab.newToggle("Auto Tower", "วาปไปที่ Unlocked Tower อัตโนมัติ", false, function(state)
-    autoTowerEnabled = state
-    if state then
-        autoTowerConnection = RunService.Heartbeat:Connect(function()
-            autoTowerFunction()
-        end)
-    else
-        if autoTowerConnection then
-            autoTowerConnection:Disconnect()
-            autoTowerConnection = nil
-        end
-    end
+mainTab.newButton("Auto Tower", "วาปไปที่ Unlocked Tower อัตโนมัติ", function()
+    autoTowerFunction()
 end)
 
 -- Teleports Tab
