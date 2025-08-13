@@ -12,7 +12,7 @@ end)
 
 local mainTab = DrRayLibrary.newTab("Main", "rbxassetid://6031763426")
 local teleportsTab = DrRayLibrary.newTab("Teleports", "rbxassetid://6031071058")
-local antistunTab = DrRayLibrary.newTab("Antistun", "rbxassetid://6031244740") -- แท็บเดียวสำหรับกันสตั้น + Anti Thanos
+local antistunTab = DrRayLibrary.newTab("Antistun", "rbxassetid://6031244740")
 local miscTab = DrRayLibrary.newTab("Misc", "rbxassetid://6031071050")
 
 local player = game.Players.LocalPlayer
@@ -20,7 +20,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
--- Magnet Battery (All Range) from workspace.FX.BatteryModel and ReplicatedStorage.AssetBossFight.Battery
+-- Magnet Battery (All Range)
 local magnetBattery = false
 local magnetConnection = nil
 local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Linear)
@@ -29,7 +29,6 @@ local function magnetizeBatteryFromFolder()
     local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    -- ดูดจาก workspace.FX.BatteryModel
     local folder1 = workspace:FindFirstChild("FX") and workspace.FX:FindFirstChild("BatteryModel")
     if folder1 then
         for _, model in ipairs(folder1:GetChildren()) do
@@ -45,7 +44,6 @@ local function magnetizeBatteryFromFolder()
         end
     end
 
-    -- ดูดจาก ReplicatedStorage.AssetBossFight.Battery
     local folder2 = game:GetService("ReplicatedStorage"):FindFirstChild("AssetBossFight") and game:GetService("ReplicatedStorage").AssetBossFight:FindFirstChild("Battery")
     if folder2 then
         for _, model in ipairs(folder2:GetChildren()) do
@@ -89,45 +87,11 @@ mainTab.newToggle("Magnet Battery (All Range)", "ดูดแบตจาก FX/
     end
 end)
 
--- เพิ่มปุ่ม Tower Event ในแท็บ Main
-local function teleportToUnlocked()
-    local TowerEvent = workspace:FindFirstChild("TowerEvent")
-    if not TowerEvent then
-        warn("ไม่พบ TowerEvent ใน workspace")
-        return
-    end
-
-    for _, obj in pairs(TowerEvent:GetDescendants()) do
-        if obj:IsA("BillboardGui") then
-            local textLabel = obj:FindFirstChild("TextLabel")
-            if textLabel and textLabel.Text == "Unlocked!!" then
-                local adornee = obj.Adornee
-                local pos
-                if adornee and adornee:IsA("BasePart") then
-                    pos = adornee.Position
-                elseif obj.Parent and obj.Parent:IsA("BasePart") then
-                    pos = obj.Parent.Position
-                end
-                if pos then
-                    local character = player.Character or player.CharacterAdded:Wait()
-                    local hrp = character:WaitForChild("HumanoidRootPart")
-                    hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
-                    return
-                end
-            end
-        end
-    end
-    warn("ไม่พบตำแหน่ง 'Unlocked!!' ตอนนี้")
-end
-
-mainTab.newButton("Teleport to Unlocked Tower", "วาปไปตำแหน่ง Unlocked!! ตัวแรกที่เจอ", function()
-    teleportToUnlocked()
-end)
-
--- TELEPORTS TAB
+-- Teleports Tab
 local function teleportToPosition(pos, name)
     if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         player.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+        print("Teleported to " .. name)
     end
 end
 
@@ -171,61 +135,75 @@ teleportsTab.newButton("Get Unit 7", "", function()
     teleportToPosition(Vector3.new(-995.53, 1365.56, -286.45), "Get Unit 7")
 end)
 
--- Antistun Tab Toggles
+-- ฟังก์ชันลบเอฟเฟคบอสธานอส
+local FX_upvr = workspace:FindFirstChild("FX")
+local BossThanos_upvr = game:GetService("ReplicatedStorage"):FindFirstChild("Asset"):FindFirstChild("FX"):FindFirstChild("BossThanos")
 
+local function ClearBossEffects()
+    if not FX_upvr then return end
+    for _, child in pairs(FX_upvr:GetChildren()) do
+        if child.Name:match("Power") or child.Name == "Meteor" or child.Name == "Lighting" or child.Name == "Warning" or child.Name == "Lava" then
+            child:Destroy()
+        end
+    end
+end
+
+-- Anti Stun Button (กดโหลดสคริปต์กันสตั้น)
+antistunTab.newButton("Anti Stun", "กันสตั้นแบบกดครั้งเดียว", function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower%20Anti%20Stuns"))()
+end)
+
+-- Anti Thanos Boss Toggle
 local antiThanosBossEnabled = false
-local antiThanosBossLoop
-local antiThanosPlayerEnabled = false
-
-antistunTab.newToggle("Anti Thanos Boss", "ลบสกิลและเอฟเฟคบอสธานอสทั้งหมด ทุก 0.2 วิ", false, function(state)
+local antiThanosBossConn = nil
+antistunTab.newToggle("Anti Thanos Boss", "ลบเอฟเฟคและสกิลบอสธานอสทุก 0.2 วิ", false, function(state)
     antiThanosBossEnabled = state
     if state then
-        antiThanosBossLoop = task.spawn(function()
-            while antiThanosBossEnabled do
-                if workspace:FindFirstChild("FX") then
-                    local FX = workspace.FX
-                    for _, child in pairs(FX:GetChildren()) do
-                        if child.Name:match("Power") or child.Name == "Meteor" or child.Name == "Lighting" or child.Name == "Warning" or child.Name == "Lava" then
-                            child:Destroy()
-                        end
-                    end
-                end
-                task.wait(0.2)
-            end
+        antiThanosBossConn = RunService.Heartbeat:Connect(function(dt)
+            ClearBossEffects()
         end)
     else
-        antiThanosBossEnabled = false
-        antiThanosBossLoop = nil
-    end
-end)
-
-antistunTab.newToggle("Anti Thanos Player", "กันสกิลคลิกบอสธานอสจากผู้เล่นอื่น", false, function(state)
-    antiThanosPlayerEnabled = state
-end)
-
--- Anti Thanos Player protection logic
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RemoteAction = ReplicatedStorage:WaitForChild("Remote"):WaitForChild("Action")
-
-RemoteAction.OnClientEvent:Connect(function(args)
-    if not antiThanosPlayerEnabled then return end
-    if type(args) ~= "table" then return end
-
-    local skillName = args[1]
-    local action = args[2]
-    local targetChar = args[3]
-
-    -- ถ้าเป็นสกิล 'Thanos' และ action 'click' และเป้าหมายเป็นตัวเรา
-    if skillName == "Thanos" and action == "click" and targetChar and targetChar.Parent == player.Character then
-        -- รีเซ็ตตัวเราให้ตายทันที (สลายเป็นผง)
-        local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.Health = 0
+        if antiThanosBossConn then
+            antiThanosBossConn:Disconnect()
+            antiThanosBossConn = nil
         end
     end
 end)
 
--- MISC TAB
+-- Anti Thanos Player Toggle (กันสกิลคลิกและอมตะ)
+local antiThanosPlayerEnabled = false
+local originalMaxHealth = nil
+local originalHealth = nil
+
+antistunTab.newToggle("Anti Thanos Player", "กันสกิลคลิกบอสธานอสและอมตะ", false, function(state)
+    antiThanosPlayerEnabled = state
+    local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+
+    if state then
+        originalMaxHealth = humanoid.MaxHealth
+        originalHealth = humanoid.Health
+        
+        humanoid.MaxHealth = math.huge
+        humanoid.Health = math.huge
+
+        task.spawn(function()
+            while antiThanosPlayerEnabled and humanoid.Parent do
+                if humanoid.Health < humanoid.MaxHealth then
+                    humanoid.Health = humanoid.MaxHealth
+                end
+                task.wait(0.1)
+            end
+        end)
+    else
+        if humanoid and humanoid.Parent then
+            humanoid.MaxHealth = originalMaxHealth or 100
+            humanoid.Health = originalHealth or humanoid.MaxHealth
+        end
+    end
+end)
+
+-- MISC TAB ตัวอย่าง
 miscTab.newButton("Kill Yourself", "", function()
     local h = player.Character and player.Character:FindFirstChild("Humanoid")
     if h then
@@ -233,7 +211,7 @@ miscTab.newButton("Kill Yourself", "", function()
     end
 end)
 
--- Infinite Jump
+-- Infinite Jump Toggle
 local infJump = false
 
 miscTab.newToggle("Infinite Jump", "กระโดดไม่จำกัด", false, function(state)
