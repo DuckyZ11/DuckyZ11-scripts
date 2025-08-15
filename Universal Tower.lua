@@ -23,10 +23,8 @@ local UserInputService = game:GetService("UserInputService")
 local function autoTowerFunction()
     local TowerEvent = workspace:FindFirstChild("TowerEvent")
     if not TowerEvent then return end
-
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:WaitForChild("HumanoidRootPart")
-
     for _, obj in pairs(TowerEvent:GetDescendants()) do
         if obj:IsA("BillboardGui") then
             local textLabel = obj:FindFirstChild("TextLabel")
