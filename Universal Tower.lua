@@ -17,7 +17,7 @@ local miscTab = DrRayLibrary.newTab("Misc", "rbxassetid://6031071050")
 local player = game.Players.LocalPlayer
 local UserInputService = game:GetService("UserInputService")
 
--- Auto Tower Function
+-- Auto Tower
 local function autoTowerFunction()
     local TowerEvent = workspace:FindFirstChild("TowerEvent")
     if not TowerEvent then return end
@@ -97,12 +97,12 @@ teleportsTab.newButton("Yamato", "", function()
     teleportToPosition(Vector3.new(-1456.68, 1365.56, -26.13), "Yamato")
 end)
 
--- Anti Stun Button
+-- Anti Stun
 antistunTab.newButton("Anti Stun", "", function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower%20Anti%20Stuns"))()
 end)
 
--- MISC
+-- Misc
 miscTab.newButton("Kill Yourself", "", function()
     local h = player.Character and player.Character:FindFirstChild("Humanoid")
     if h then h.Health = 0 end
@@ -146,6 +146,16 @@ miscTab.newToggle("Enable WalkSpeed", "", false, function(state)
             end
         end
     end
+end)
+
+-- Floating Part Button
+miscTab.newButton("Floating Part", "", function()
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/GhostPlayer352/Test4/main/Float'))()
+end)
+
+-- Tp Save Position Button
+miscTab.newButton("Tp Save Position", "", function()
+    loadstring(game:HttpGet(('https://raw.githubusercontent.com/0Ben1/fe/main/Tp%20Place%20GUI'),true))()
 end)
 
 player.CharacterAdded:Connect(function(char)
