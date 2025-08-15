@@ -21,10 +21,8 @@ local UserInputService = game:GetService("UserInputService")
 local function autoTowerFunction()
     local TowerEvent = workspace:FindFirstChild("TowerEvent")
     if not TowerEvent then return end
-
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:WaitForChild("HumanoidRootPart")
-
     for _, obj in pairs(TowerEvent:GetDescendants()) do
         if obj:IsA("BillboardGui") then
             local textLabel = obj:FindFirstChild("TextLabel")
@@ -37,7 +35,7 @@ local function autoTowerFunction()
                     pos = obj.Parent.Position
                 end
                 if pos then
-                    hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+                    hrp.CFrame = CFrame.new(pos + Vector3.new(0,5,0))
                     break
                 end
             end
@@ -51,9 +49,8 @@ end)
 
 -- Teleports
 local function teleportToPosition(pos, name)
-    if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         player.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
-        print("Teleported to " .. name)
     end
 end
 
@@ -77,8 +74,8 @@ teleportsTab.newButton("Batolomeo", "", function()
     teleportToPosition(Vector3.new(-1322.48, 1240.66, -38.68), "Batolomeo")
 end)
 
-teleportsTab.newButton("Thanos Boss", "", function()
-    teleportToPosition(Vector3.new(-1217.44, 1404.38, 78.68), "Thanos Boss")
+teleportsTab.newButton("Fujitora", "", function()
+    teleportToPosition(Vector3.new(-1217.44, 1404.38, 78.68), "Fujitora")
 end)
 
 teleportsTab.newButton("Kashimo", "", function()
@@ -123,6 +120,7 @@ end)
 -- WalkSpeed
 local walkSpeedValue = 50
 local walkSpeedEnabled = false
+
 miscTab.newTextBox("WalkSpeed Value", "", true, function(value)
     local num = tonumber(value)
     if num then
@@ -148,27 +146,21 @@ miscTab.newToggle("Enable WalkSpeed", "", false, function(state)
     end
 end)
 
--- Floating Part Button
+-- Floating Part
 miscTab.newButton("Floating Part", "", function()
     loadstring(game:HttpGet('https://raw.githubusercontent.com/GhostPlayer352/Test4/main/Float'))()
 end)
 
--- Tp Save Position Button
+-- Tp Save Position
 miscTab.newButton("Tp Save Position", "", function()
-    loadstring(game:HttpGet(('https://raw.githubusercontent.com/0Ben1/fe/main/Tp%20Place%20GUI'),true))()
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/0Ben1/fe/main/Tp%20Place%20GUI'))()
 end)
 
+-- Character Added connection to apply walk speed & inf jump dynamically
 player.CharacterAdded:Connect(function(char)
     task.wait(1)
     local h = char:WaitForChild("Humanoid")
     if h then
         if walkSpeedEnabled then h.WalkSpeed = walkSpeedValue end
-        if infJump then
-            UserInputService.JumpRequest:Connect(function()
-                if char and char:FindFirstChildOfClass("Humanoid") then
-                    char:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
-                end
-            end)
-        end
     end
 end)
