@@ -19,12 +19,13 @@ local player = game.Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
--- Auto Tower Function
+-- Auto Tower
 local function autoTowerFunction()
     local TowerEvent = workspace:FindFirstChild("TowerEvent")
     if not TowerEvent then return end
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:WaitForChild("HumanoidRootPart")
+
     for _, obj in pairs(TowerEvent:GetDescendants()) do
         if obj:IsA("BillboardGui") then
             local textLabel = obj:FindFirstChild("TextLabel")
@@ -75,26 +76,34 @@ antistunTab.newButton("Anti Stun", "", function()
 end)
 
 -- Misc
-local walkSpeed = 16
+getgenv().WalkSpeedValue = 16
 local walkSpeedEnabled = false
 
-miscTab.newTextBox("Walk Speed", "", function(val)
-    walkSpeed = tonumber(val) or 16
+miscTab.newTextBox("Walk Speed", "Enter speed value", function(val)
+    getgenv().WalkSpeedValue = tonumber(val) or 16
 end)
 
-miscTab.newToggle("Walk Speed Enable", "", false, function(state)
-    walkSpeedEnabled = state
-    local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        humanoid.WalkSpeed = walkSpeedEnabled and walkSpeed or 16
+miscTab.newButton("Apply WalkSpeed", "", function()
+    if player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = getgenv().WalkSpeedValue
+        end
     end
 end)
 
-RunService.Heartbeat:Connect(function()
-    if walkSpeedEnabled and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = walkSpeed
+miscTab.newToggle("Enable WalkSpeed Loop", "", false, function(state)
+    walkSpeedEnabled = state
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if walkSpeedEnabled and player.Character then
+            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.WalkSpeed = getgenv().WalkSpeedValue
+            end
         end
     end
 end)
