@@ -76,26 +76,45 @@ antistunTab.newButton("Anti Stun", "", function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower%20Anti%20Stuns"))()
 end)
 
--- Misc Buttons
+-- Misc Tab Features
+-- Speed Tool
+miscTab.newButton("Speed Tool", "", function()
+    local tool = Instance.new("Tool")
+    tool.RequiresHandle = false
+    tool.Name = "Click To Speed Up"
+
+    local normalWalkSpeed = 16
+    local boostedWalkSpeed = 160
+
+    tool.Activated:Connect(function()
+        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+            player.Character.Humanoid.WalkSpeed = boostedWalkSpeed
+        end
+    end)
+
+    tool.Equipped:Connect(function()
+        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+            player.Character.Humanoid.WalkSpeed = boostedWalkSpeed
+        end
+    end)
+
+    tool.Unequipped:Connect(function()
+        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+            player.Character.Humanoid.WalkSpeed = normalWalkSpeed
+        end
+    end)
+
+    tool.Parent = player.Backpack
+end)
+
+-- Floating Part
 miscTab.newButton("Floating Part", "", function()
     loadstring(game:HttpGet('https://raw.githubusercontent.com/GhostPlayer352/Test4/main/Float'))()
 end)
 
+-- Tp Save Position
 miscTab.newButton("Tp Save Position", "", function()
     loadstring(game:HttpGet('https://raw.githubusercontent.com/0Ben1/fe/main/Tp%20Place%20GUI',true))()
-end)
-
-miscTab.newButton("Speed Tool", "", function()
-    local mouse = player:GetMouse()
-    local tool = Instance.new("Tool")
-    tool.RequiresHandle = false
-    tool.Name = "Click To Speed Up"
-    tool.Activated:Connect(function()
-        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-            player.Character.Humanoid.WalkSpeed = 160
-        end
-    end)
-    tool.Parent = player.Backpack
 end)
 
 -- Infinite Jump
