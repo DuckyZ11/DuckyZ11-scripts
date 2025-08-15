@@ -10,19 +10,21 @@ task.defer(function()
     end
 end)
 
-local mainTab = DrRayLibrary.newTab("Main", "rbxassetid://6031763426")
-local teleportsTab = DrRayLibrary.newTab("Teleports", "rbxassetid://6031071058")
-local antistunTab = DrRayLibrary.newTab("Antistun", "rbxassetid://6031244740")
-local miscTab = DrRayLibrary.newTab("Misc", "rbxassetid://6031071050")
+-- Tabs
+local mainTab = window:NewTab("Main", "rbxassetid://6031763426")
+local teleportsTab = window:NewTab("Teleports", "rbxassetid://6031071058")
+local antistunTab = window:NewTab("Antistun", "rbxassetid://6031244740")
+local miscTab = window:NewTab("Misc", "rbxassetid://6031071050")
 
 local player = game.Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
--- Auto Tower
+-- ========== Main Tab ==========
 local function autoTowerFunction()
     local TowerEvent = workspace:FindFirstChild("TowerEvent")
     if not TowerEvent then return end
+
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:WaitForChild("HumanoidRootPart")
 
@@ -46,11 +48,11 @@ local function autoTowerFunction()
     end
 end
 
-mainTab.newButton("Auto Tower", "", function()
+mainTab:NewButton("Auto Tower", "", function()
     autoTowerFunction()
 end)
 
--- Teleports
+-- ========== Teleports Tab ==========
 local function teleportToPosition(pos, name)
     if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         player.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
@@ -58,41 +60,33 @@ local function teleportToPosition(pos, name)
     end
 end
 
-teleportsTab.newButton("End", "", function() teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61), "End") end)
-teleportsTab.newButton("Safezone", "", function() teleportToPosition(Vector3.new(-944.47, 1014.38, 55.65), "Safezone") end)
-teleportsTab.newButton("Nearby End", "", function() teleportToPosition(Vector3.new(-657.45, 1505.44, 21.10), "Nearby End") end)
-teleportsTab.newButton("Boss Thanos", "", function() teleportToPosition(Vector3.new(-953.44, 1106.38, -185.17), "Boss Thanos") end)
-teleportsTab.newButton("Ayanokoji", "", function() teleportToPosition(Vector3.new(-1090.62, 1395.38, 304.09), "Ayanokoji") end)
-teleportsTab.newButton("Batolomeo", "", function() teleportToPosition(Vector3.new(-1322.48, 1240.66, -38.68), "Batolomeo") end)
-teleportsTab.newButton("Fujitora", "", function() teleportToPosition(Vector3.new(-1217.44, 1404.38, 78.68), "Fujitora") end)
-teleportsTab.newButton("Kashimo", "", function() teleportToPosition(Vector3.new(-1203.41, 1365.39, -85.41), "Kashimo") end)
-teleportsTab.newButton("Noob", "", function() teleportToPosition(Vector3.new(-945.30, 1014.38, 177.37), "Noob") end)
-teleportsTab.newButton("Saitama", "", function() teleportToPosition(Vector3.new(-1186.26, 1240.68, 197.13), "Saitama") end)
-teleportsTab.newButton("Yamato", "", function() teleportToPosition(Vector3.new(-1456.68, 1365.56, -26.13), "Yamato") end)
+teleportsTab:NewButton("End", "", function() teleportToPosition(Vector3.new(-645.96, 1505.44, 21.61), "End") end)
+teleportsTab:NewButton("Safezone", "", function() teleportToPosition(Vector3.new(-944.47, 1014.38, 55.65), "Safezone") end)
+teleportsTab:NewButton("Nearby End", "", function() teleportToPosition(Vector3.new(-657.45, 1505.44, 21.10), "Nearby End") end)
+teleportsTab:NewButton("Boss Thanos", "", function() teleportToPosition(Vector3.new(-953.44, 1106.38, -185.17), "Boss Thanos") end)
+teleportsTab:NewButton("Ayanokoji", "", function() teleportToPosition(Vector3.new(-1090.62, 1395.38, 304.09), "Ayanokoji") end)
+teleportsTab:NewButton("Batolomeo", "", function() teleportToPosition(Vector3.new(-1322.48, 1240.66, -38.68), "Batolomeo") end)
+teleportsTab:NewButton("Fujitora", "", function() teleportToPosition(Vector3.new(-1217.44, 1404.38, 78.68), "Fujitora") end)
+teleportsTab:NewButton("Kashimo", "", function() teleportToPosition(Vector3.new(-1203.41, 1365.39, -85.41), "Kashimo") end)
+teleportsTab:NewButton("Noob", "", function() teleportToPosition(Vector3.new(-945.30, 1014.38, 177.37), "Noob") end)
+teleportsTab:NewButton("Saitama", "", function() teleportToPosition(Vector3.new(-1186.26, 1240.68, 197.13), "Saitama") end)
+teleportsTab:NewButton("Yamato", "", function() teleportToPosition(Vector3.new(-1456.68, 1365.56, -26.13), "Yamato") end)
 
--- Anti Stun
-antistunTab.newButton("Anti Stun", "", function()
+-- ========== Antistun Tab ==========
+antistunTab:NewButton("Anti Stun", "", function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower%20Anti%20Stuns"))()
 end)
 
--- Misc
+-- ========== Misc Tab ==========
+-- WalkSpeed Loop
 getgenv().WalkSpeedValue = 16
 local walkSpeedEnabled = false
 
-miscTab.newTextBox("Walk Speed", "Enter speed value", function(val)
+miscTab:NewTextBox("Walk Speed", "Enter speed", function(val)
     getgenv().WalkSpeedValue = tonumber(val) or 16
 end)
 
-miscTab.newButton("Apply WalkSpeed", "", function()
-    if player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = getgenv().WalkSpeedValue
-        end
-    end
-end)
-
-miscTab.newToggle("Enable WalkSpeed Loop", "", false, function(state)
+miscTab:NewToggle("Enable WalkSpeed Loop", "Loop until disabled", false, function(state)
     walkSpeedEnabled = state
 end)
 
@@ -108,17 +102,19 @@ task.spawn(function()
     end
 end)
 
-miscTab.newButton("Floating Part", "", function()
+-- Floating Part
+miscTab:NewButton("Floating Part", "", function()
     loadstring(game:HttpGet('https://raw.githubusercontent.com/GhostPlayer352/Test4/main/Float'))()
 end)
 
-miscTab.newButton("Tp Save Position", "", function()
+-- Tp Save Position
+miscTab:NewButton("Tp Save Position", "", function()
     loadstring(game:HttpGet('https://raw.githubusercontent.com/0Ben1/fe/main/Tp%20Place%20GUI',true))()
 end)
 
 -- Infinite Jump
 local infJump = false
-miscTab.newToggle("Infinite Jump", "", false, function(state)
+miscTab:NewToggle("Infinite Jump", "", false, function(state)
     infJump = state
 end)
 
