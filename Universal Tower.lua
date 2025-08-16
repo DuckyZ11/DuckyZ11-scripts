@@ -77,34 +77,37 @@ antistunTab.newButton("Anti Stun", "", function()
 end)
 
 -- Misc Tab Features
--- Speed Tool
+-- Speed Tool (proohio version)
 miscTab.newButton("Speed Tool", "", function()
+    local boostspeed = 160 -- change this to walk faster or slower
+    local ospeed = 16 -- original walkspeed
+
+    local plrs = game:GetService("Players")
+    local plr = plrs.LocalPlayer
+    local char = plr.Character or plr.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid")
+    local bool = Instance.new("BoolValue")
+    bool.Value = false
+
     local tool = Instance.new("Tool")
+    tool.Name = "speedboost"
     tool.RequiresHandle = false
-    tool.Name = "Click To Speed Up"
-
-    local normalWalkSpeed = 16
-    local boostedWalkSpeed = 160
-
-    tool.Activated:Connect(function()
-        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-            player.Character.Humanoid.WalkSpeed = boostedWalkSpeed
-        end
-    end)
+    tool.Parent = plr.Backpack
 
     tool.Equipped:Connect(function()
-        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-            player.Character.Humanoid.WalkSpeed = boostedWalkSpeed
-        end
+        bool.Value = true
     end)
-
     tool.Unequipped:Connect(function()
-        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-            player.Character.Humanoid.WalkSpeed = normalWalkSpeed
-        end
+        bool.Value = false
     end)
 
-    tool.Parent = player.Backpack
+    bool:GetPropertyChangedSignal("Value"):Connect(function()
+        if bool.Value then
+            hum.WalkSpeed = boostspeed
+        else
+            hum.WalkSpeed = ospeed
+        end
+    end)
 end)
 
 -- Floating Part
