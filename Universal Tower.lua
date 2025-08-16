@@ -51,6 +51,11 @@ mainTab.newButton("Auto Tower", "", function()
     autoTowerFunction()
 end)
 
+-- Anti Stun (Main Tab)
+mainTab.newButton("Anti Stun", "", function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower%20Anti%20Stuns"))()
+end)
+
 -- Teleports
 local function teleportToPosition(pos, name)
     if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -86,28 +91,29 @@ animationsTab.newButton("Anti Cid Cut Scene", "", function()
     end
 end)
 
--- Axel Walk Loop Animation
+-- Axel Walk Loop Toggle
 local axelAnim = nil
 local axelPlaying = false
-animationsTab.newButton("Axel Walks", "", function()
+animationsTab.newToggle("Axel Walks", "", false, function(state)
     if not player.Character then return end
     local hum = player.Character:FindFirstChildOfClass("Humanoid")
     if not hum then return end
     local animator = hum:FindFirstChildWhichIsA("Animator") or Instance.new("Animator", hum)
-    if axelPlaying then
-        if axelAnim then
-            axelAnim:Stop()
-            axelAnim:Destroy()
-            axelAnim = nil
-        end
-        axelPlaying = false
-    else
+
+    if state then
         local track = hum:LoadAnimation(Instance.new("Animation"))
         track.AnimationId = "rbxassetid://98044982170207"
         track.Looped = true
         track:Play()
         axelAnim = track
         axelPlaying = true
+    else
+        if axelAnim then
+            axelAnim:Stop()
+            axelAnim:Destroy()
+            axelAnim = nil
+        end
+        axelPlaying = false
     end
 end)
 
