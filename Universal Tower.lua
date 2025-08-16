@@ -91,29 +91,29 @@ animationsTab.newButton("Anti Cid Cut Scene", "", function()
     end
 end)
 
--- Axel Walk Loop Toggle
+-- Axel Walk Loop Toggle (ใหม่)
 local axelAnim = nil
-local axelPlaying = false
 animationsTab.newToggle("Axel Walks", "", false, function(state)
     if not player.Character then return end
     local hum = player.Character:FindFirstChildOfClass("Humanoid")
     if not hum then return end
+
     local animator = hum:FindFirstChildWhichIsA("Animator") or Instance.new("Animator", hum)
 
     if state then
-        local track = hum:LoadAnimation(Instance.new("Animation"))
-        track.AnimationId = "rbxassetid://98044982170207"
+        -- สร้าง Animation Instance ใหม่และโหลด ID ของ Axel Walk
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://98044982170207"
+        local track = animator:LoadAnimation(anim)
         track.Looped = true
         track:Play()
         axelAnim = track
-        axelPlaying = true
     else
         if axelAnim then
             axelAnim:Stop()
             axelAnim:Destroy()
             axelAnim = nil
         end
-        axelPlaying = false
     end
 end)
 
