@@ -51,7 +51,7 @@ mainTab.newButton("Auto Tower", "", function()
     autoTowerFunction()
 end)
 
--- Anti Stun (Main Tab)
+-- Anti Stun
 mainTab.newButton("Anti Stun", "", function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Universal%20Tower%20Anti%20Stuns"))()
 end)
@@ -77,31 +77,16 @@ teleportsTab.newButton("Saitama", "", function() teleportToPosition(Vector3.new(
 teleportsTab.newButton("Yamato", "", function() teleportToPosition(Vector3.new(-1456.68, 1365.56, -26.13), "Yamato") end)
 
 -- Animations
--- Anti Cut Scenes
-animationsTab.newButton("Anti Broly Cut Scene", "", function()
-    local brolyCam = game:GetService("ReplicatedStorage").Asset.Animation.Cam:FindFirstChild("Broly")
-    if brolyCam and brolyCam.Parent then
-        brolyCam.Parent = nil
-    end
-end)
-animationsTab.newButton("Anti Cid Cut Scene", "", function()
-    local cidCam = game:GetService("ReplicatedStorage").Asset.Animation.Cam:FindFirstChild("Cid")
-    if cidCam and cidCam.Parent then
-        cidCam.Parent = nil
-    end
-end)
-
--- Axel Walk Loop Toggle (ใหม่)
 local axelAnim = nil
+
+-- Axel Walk Loop Toggle
 animationsTab.newToggle("Axel Walks", "", false, function(state)
     if not player.Character then return end
     local hum = player.Character:FindFirstChildOfClass("Humanoid")
     if not hum then return end
-
     local animator = hum:FindFirstChildWhichIsA("Animator") or Instance.new("Animator", hum)
 
     if state then
-        -- สร้าง Animation Instance ใหม่และโหลด ID ของ Axel Walk
         local anim = Instance.new("Animation")
         anim.AnimationId = "rbxassetid://98044982170207"
         local track = animator:LoadAnimation(anim)
@@ -114,6 +99,58 @@ animationsTab.newToggle("Axel Walks", "", false, function(state)
             axelAnim:Destroy()
             axelAnim = nil
         end
+    end
+end)
+
+-- Dodge Animations IDs
+local DodgeAnimations = {
+    "rbxassetid://103080434658054",
+    "rbxassetid://127692577072948",
+    "rbxassetid://85895939846988",
+    "rbxassetid://102979127301031",
+    "rbxassetid://96639785369459"
+}
+local GokuAnimation = "rbxassetid://83245771145043"
+
+-- ฟังก์ชันเล่นอนิเมชั่น
+local function playAnimOnce(id)
+    if not player.Character then return end
+    local hum = player.Character:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    local anim = Instance.new("Animation")
+    anim.AnimationId = id
+    local track = hum:LoadAnimation(anim)
+    track.Looped = false
+    track:Play()
+    return track
+end
+
+-- Dodge Animations Toggle
+local dodgeLoop = false
+animationsTab.newToggle("Dodge Animations", "สุ่มอนิเมชั่น Dodge", false, function(state)
+    dodgeLoop = state
+    if dodgeLoop then
+        spawn(function()
+            while dodgeLoop do
+                local id = DodgeAnimations[math.random(1, #DodgeAnimations)]
+                local track = playAnimOnce(id)
+                task.wait((track and track.Length or 1) + 1.2)
+            end
+        end)
+    end
+end)
+
+-- Goku Dodge Animation Toggle
+local gokuLoop = false
+animationsTab.newToggle("Goku UI Animation", "เล่นอนิเมชั่น Goku Dodge", false, function(state)
+    gokuLoop = state
+    if gokuLoop then
+        spawn(function()
+            while gokuLoop do
+                local track = playAnimOnce(GokuAnimation)
+                task.wait((track and track.Length or 1) + 1.2)
+            end
+        end)
     end
 end)
 
