@@ -1,0 +1,167 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local UserInputService = game:GetService("UserInputService")
+
+-- GUI หลัก
+local ScreenGui = Instance.new("ScreenGui", PlayerGui)
+ScreenGui.Name = "AnimationGUI"
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 250, 0, 350)
+MainFrame.Position = UDim2.new(0.25, 0, 0.25, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(35,35,35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+-- TopBar
+local TopBar = Instance.new("TextLabel", MainFrame)
+TopBar.Size = UDim2.new(1,0,0,30)
+TopBar.BackgroundColor3 = Color3.fromRGB(25,25,25)
+TopBar.Text = "ANIMATION GUI"
+TopBar.TextColor3 = Color3.new(1,1,1)
+TopBar.Font = Enum.Font.SourceSansBold
+TopBar.TextSize = 18
+
+-- Close UI
+local closeUIBtn = Instance.new("TextButton", MainFrame)
+closeUIBtn.Size = UDim2.new(0, 40, 0, 30)
+closeUIBtn.Position = UDim2.new(1,-45,0,0)
+closeUIBtn.Text = "X"
+closeUIBtn.TextColor3 = Color3.new(1,1,1)
+closeUIBtn.BackgroundColor3 = Color3.fromRGB(200,0,0)
+closeUIBtn.Font = Enum.Font.SourceSansBold
+closeUIBtn.TextSize = 16
+closeUIBtn.BorderSizePixel = 0
+closeUIBtn.MouseButton1Click:Connect(function()
+    ScreenGui.Enabled = false
+end)
+
+-- Toggle UI ลอย
+local toggleBtn = Instance.new("TextButton", PlayerGui)
+toggleBtn.Size = UDim2.new(0,120,0,35)
+toggleBtn.Position = UDim2.new(0,10,0,10)
+toggleBtn.Text = "Toggle Animation"
+toggleBtn.TextColor3 = Color3.new(1,1,1)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(0,120,255)
+toggleBtn.Font = Enum.Font.SourceSansBold
+toggleBtn.TextSize = 16
+toggleBtn.BorderSizePixel = 0
+toggleBtn.ZIndex = 10
+
+local visible = true
+toggleBtn.MouseButton1Click:Connect(function()
+    visible = not visible
+    ScreenGui.Enabled = visible
+end)
+
+-- ลากปุ่มลอย
+do
+    local dragging, dragInput, dragStart, startPos
+    local function update(input)
+        local delta = input.Position - dragStart
+        toggleBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+    toggleBtn.InputBegan:Connect(function(input)
+        if input.UserInputType==Enum.UserInputType.Touch or input.UserInputType==Enum.UserInputType.MouseButton1 then
+            dragging=true
+            dragStart=input.Position
+            startPos=toggleBtn.Position
+            input.Changed:Connect(function()
+                if input.UserInputState==Enum.UserInputState.End then dragging=false end
+            end)
+        end
+    end)
+    toggleBtn.InputChanged:Connect(function(input)
+        if input.UserInputType==Enum.UserInputType.Touch or input.UserInputType==Enum.UserInputType.MouseMovement then
+            dragInput=input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input==dragInput then update(input) end
+    end)
+end
+
+-- Animations
+local Animations = {
+    ["Monke"]=88429171708642,
+    ["Saitama punch"]=129400888095506,
+    ["Gojo"]=80955266495679,
+    ["Dio Pose"]=124394043270103,
+    ["Thanos punch"]=80231212795349,
+    ["Gigachad"]=79435070957203,
+    ["Kashimo Pose"]=125824602012115,
+    ["Okarun"]=94113830560821
+}
+
+local scrollFrame = Instance.new("ScrollingFrame", MainFrame)
+scrollFrame.Size = UDim2.new(1,-20,1,-35)
+scrollFrame.Position = UDim2.new(0,10,0,35)
+scrollFrame.CanvasSize = UDim2.new(0,0,0,0)
+scrollFrame.ScrollBarThickness = 6
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.BorderSizePixel = 0
+
+local loopedTracks={}
+
+local startY=10
+local offsetY=50
+local count=0
+for name, animId in pairs(Animations) do
+    -- ปุ่มเล่น
+    local btn=Instance.new("TextButton", scrollFrame)
+    btn.Size = UDim2.new(0, 140, 0, 40)
+    btn.Position = UDim2.new(0,10,0,startY+count*offsetY)
+    btn.Text = name
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.BackgroundColor3 = Color3.fromRGB(0,150,0)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 16
+    btn.BorderSizePixel = 0
+
+    -- ปุ่ม Stop เฉพาะอนิเมชั่นที่ลูป
+    local stopBtn=nil
+    if name=="Monke" or name=="Dio Pose" or name=="Gigachad" then
+        stopBtn = Instance.new("TextButton", scrollFrame)
+        stopBtn.Size = UDim2.new(0,80,0,40)
+        stopBtn.Position = UDim2.new(0,160,0,startY+count*offsetY)
+        stopBtn.Text = "Stop"
+        stopBtn.TextColor3 = Color3.new(1,1,1)
+        stopBtn.BackgroundColor3 = Color3.fromRGB(200,0,0)
+        stopBtn.Font = Enum.Font.SourceSansBold
+        stopBtn.TextSize = 14
+        stopBtn.BorderSizePixel = 0
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            if (name=="Monke" or name=="Dio Pose" or name=="Gigachad") and loopedTracks[name] then return end
+            local anim = Instance.new("Animation")
+            anim.AnimationId = "rbxassetid://"..animId
+            local track = LocalPlayer.Character.Humanoid:LoadAnimation(anim)
+            if name=="Monke" or name=="Dio Pose" or name=="Gigachad" then
+                track.Looped=true
+                loopedTracks[name]=track
+            else
+                track.Looped=false
+            end
+            track:Play()
+        end
+    end)
+
+    if stopBtn then
+        stopBtn.MouseButton1Click:Connect(function()
+            local track=loopedTracks[name]
+            if track then
+                track:Stop()
+                loopedTracks[name]=nil
+            end
+        end)
+    end
+
+    count = count +1
+end
+
+scrollFrame.CanvasSize = UDim2.new(0,0,0,startY+count*offsetY)
