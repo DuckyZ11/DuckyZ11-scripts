@@ -78,8 +78,6 @@ teleportsTab.newButton("Yamato", "", function() teleportToPosition(Vector3.new(-
 
 -- Animations
 local axelAnim = nil
-
--- Axel Walk Loop Toggle
 animationsTab.newToggle("Axel Walks", "", false, function(state)
     if not player.Character then return end
     local hum = player.Character:FindFirstChildOfClass("Humanoid")
@@ -102,7 +100,6 @@ animationsTab.newToggle("Axel Walks", "", false, function(state)
     end
 end)
 
--- Dodge Animations IDs
 local DodgeAnimations = {
     "rbxassetid://103080434658054",
     "rbxassetid://127692577072948",
@@ -112,7 +109,6 @@ local DodgeAnimations = {
 }
 local GokuAnimation = "rbxassetid://83245771145043"
 
--- ฟังก์ชันเล่นอนิเมชั่น
 local function playAnimOnce(id)
     if not player.Character then return end
     local hum = player.Character:FindFirstChildOfClass("Humanoid")
@@ -125,7 +121,6 @@ local function playAnimOnce(id)
     return track
 end
 
--- Dodge Animations Toggle
 local dodgeLoop = false
 animationsTab.newToggle("Dodge Animations", "สุ่มอนิเมชั่น Dodge", false, function(state)
     dodgeLoop = state
@@ -140,7 +135,6 @@ animationsTab.newToggle("Dodge Animations", "สุ่มอนิเมชั�
     end
 end)
 
--- Goku Dodge Animation Toggle
 local gokuLoop = false
 animationsTab.newToggle("Goku UI Animation", "เล่นอนิเมชั่น Goku Dodge", false, function(state)
     gokuLoop = state
@@ -202,4 +196,12 @@ end)
 
 miscTab.newButton("Tp Save Position", "", function()
     loadstring(game:HttpGet('https://raw.githubusercontent.com/0Ben1/fe/main/Tp%20Place%20GUI',true))()
+end)
+
+miscTab.newButton("Tp To Players", "", function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/DuckyZ11/DuckyZ11-scripts/refs/heads/main/Tp%20to%20players"))()
+end)
+
+miscTab.newButton("Anti Touchable Parts", "", function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Mautiku/ehh/main/remove%20touchable%20parts.txt",true))()
 end)
