@@ -1,0 +1,180 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+ScreenGui.Name = "TeleporterGUI"
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 250, 0, 300)
+MainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+local TopBar = Instance.new("TextLabel", MainFrame)
+TopBar.Size = UDim2.new(1, 0, 0, 30)
+TopBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+TopBar.Text = "TELEPORTER"
+TopBar.TextColor3 = Color3.new(1, 1, 1)
+TopBar.Font = Enum.Font.SourceSansBold
+TopBar.TextSize = 20
+
+local MinimizeButton = Instance.new("TextButton", MainFrame)
+MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
+MinimizeButton.Position = UDim2.new(1, -70, 0, 0)
+MinimizeButton.Text = "-"
+MinimizeButton.TextColor3 = Color3.new(1, 1, 1)
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(211, 211, 211)
+MinimizeButton.Font = Enum.Font.SourceSansBold
+MinimizeButton.TextSize = 20
+MinimizeButton.BorderSizePixel = 0
+
+local CloseButton = Instance.new("TextButton", MainFrame)
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -35, 0, 0)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.new(1, 0, 0)
+CloseButton.BackgroundColor3 = Color3.fromRGB(211, 211, 211)
+CloseButton.Font = Enum.Font.SourceSansBold
+CloseButton.TextSize = 18
+CloseButton.BorderSizePixel = 0
+CloseButton.MouseButton1Click:Connect(function()
+	ScreenGui:Destroy()
+end)
+
+local minimized = false
+local originalSize = MainFrame.Size
+local minimizedSize = UDim2.new(originalSize.X.Scale, originalSize.X.Offset, 0, 30)
+
+MinimizeButton.MouseButton1Click:Connect(function()
+	minimized = not minimized
+	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local goal = {Size = minimized and minimizedSize or originalSize}
+	TweenService:Create(MainFrame, tweenInfo, goal):Play()
+
+	for _, child in ipairs(MainFrame:GetChildren()) do
+		if child ~= TopBar and child ~= CloseButton and child ~= MinimizeButton then
+			child.Visible = not minimized
+		end
+	end
+end)
+
+local SearchBox = Instance.new("TextBox", MainFrame)
+SearchBox.PlaceholderText = "Search Player..."
+SearchBox.ClearTextOnFocus = false
+SearchBox.Text = ""
+SearchBox.Size = UDim2.new(1, -20, 0, 30)
+SearchBox.Position = UDim2.new(0, 10, 0, 40)
+SearchBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+SearchBox.TextColor3 = Color3.new(1, 1, 1)
+SearchBox.Font = Enum.Font.SourceSans
+SearchBox.TextSize = 18
+SearchBox.BorderSizePixel = 0
+
+local PlayerList = Instance.new("ScrollingFrame", MainFrame)
+PlayerList.Size = UDim2.new(1, -20, 0, 180)
+PlayerList.Position = UDim2.new(0, 10, 0, 80)
+PlayerList.CanvasSize = UDim2.new(0, 0, 0, 0)
+PlayerList.ScrollBarThickness = 6
+PlayerList.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+PlayerList.BorderSizePixel = 0
+
+local TeleportButton = Instance.new("TextButton", MainFrame)
+TeleportButton.Size = UDim2.new(1, -20, 0, 30)
+TeleportButton.Position = UDim2.new(0, 10, 1, -40)
+TeleportButton.Text = "Confirm"
+TeleportButton.TextColor3 = Color3.new(1, 1, 1)
+TeleportButton.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+TeleportButton.Font = Enum.Font.SourceSansBold
+TeleportButton.TextSize = 20
+TeleportButton.BorderSizePixel = 0
+
+local selectedPlayer = nil
+local selectedButton = nil
+
+local function updatePlayerList(filter)
+	PlayerList:ClearAllChildren()
+	local y = 0
+	filter = filter:lower()
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			local displayName = player.DisplayName
+			local userName = player.Name
+			if displayName:lower():find(filter) or userName:lower():find(filter) then
+				local button = Instance.new("TextButton")
+				button.Size = UDim2.new(1, 0, 0, 40)
+				button.Position = UDim2.new(0, 0, 0, y)
+				button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+				button.Text = ""
+				button.BorderSizePixel = 0
+				button.AutoButtonColor = false
+				button.Parent = PlayerList
+
+				local nameLabel = Instance.new("TextLabel", button)
+				nameLabel.Size = UDim2.new(1, -10, 0, 18)
+				nameLabel.Position = UDim2.new(0, 5, 0, 5)
+				nameLabel.BackgroundTransparency = 1
+				nameLabel.Text = displayName
+				nameLabel.TextColor3 = Color3.new(1, 1, 1)
+				nameLabel.Font = Enum.Font.SourceSansBold
+				nameLabel.TextSize = 16
+				nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+				local userLabel = Instance.new("TextLabel", button)
+				userLabel.Size = UDim2.new(1, -10, 0, 14)
+				userLabel.Position = UDim2.new(0, 5, 0, 22)
+				userLabel.BackgroundTransparency = 1
+				userLabel.Text = "@" .. userName
+				userLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+				userLabel.Font = Enum.Font.SourceSansItalic
+				userLabel.TextSize = 12
+				userLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+				button.MouseButton1Click:Connect(function()
+					if selectedButton then
+						selectedButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+					end
+					selectedPlayer = player
+					selectedButton = button
+					button.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+				end)
+
+				if selectedPlayer == player then
+					button.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+					selectedButton = button
+				end
+
+				y = y + 42
+			end
+		end
+	end
+
+	PlayerList.CanvasSize = UDim2.new(0, 0, 0, y)
+end
+
+updatePlayerList("")
+
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	updatePlayerList(SearchBox.Text)
+end)
+
+Players.PlayerAdded:Connect(function()
+	updatePlayerList(SearchBox.Text)
+end)
+
+Players.PlayerRemoving:Connect(function()
+	updatePlayerList(SearchBox.Text)
+end)
+
+TeleportButton.MouseButton1Click:Connect(function()
+	if selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		local char = LocalPlayer.Character
+		if char and char:FindFirstChild("HumanoidRootPart") then
+			char:MoveTo(selectedPlayer.Character.HumanoidRootPart.Position + Vector3.new(2, 0, 2))
+		end
+	end
+end)
