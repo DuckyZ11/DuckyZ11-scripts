@@ -2,7 +2,7 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2zu/
 
 -- Main Window
 local Window = Library:Window({
-    Title = "Universal Tower [Script]",
+    Title = "Universal Tower [DuckyHub]",
     Desc = "Premium Version",
     Icon = 111020520855538,
     Theme = "Dark",
