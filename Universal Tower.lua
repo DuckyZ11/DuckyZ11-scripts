@@ -3,7 +3,7 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/x2zu/
 -- Main Window
 local Window = Library:Window({
     Title = "Universal Tower [DuckyHub]",
-    Desc = "Premium Version",
+    Desc = "Credit to stellar ui lib",
     Icon = "rbxassetid://121792424136099",
     Theme = "Dark",
     Config = {
