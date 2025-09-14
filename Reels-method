@@ -1,10 +1,11 @@
--- Fisch Auto Fish Bar Follow Script with UI Toggle & Anti-Exploit (2025)
--- Features: Track Fish Bar, Random Miss 1.7-2.6s, UI Toggle, Anti-Exploit (Random Timing, Mouse Jitter, Frame Skip)
+-- Fisch Auto Fish Bar Follow Script with UI Toggle, Progress Speed Input, Hide/Show, Draggable & Anti-Exploit (2025)
+-- Features: Track Progress Bar, Random Miss 1.7-2.6s, UI Toggle, Progress Speed Input, Hide/Show UI, Draggable UI, Anti-Exploit
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
 
@@ -13,71 +14,188 @@ local reeling = false
 local fishBar = nil
 local connection
 local frameCounter = 0
+local progressSpeedPercent = 15 -- Default 15%
+local uiVisible = true
 
--- Create UI Toggle (Obfuscated)
+-- Create UI Toggle, Progress Speed Input, Hide/Show
 local function createToggleUI()
     local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "UI_" .. math.random(1000, 9999) -- Random name to avoid detection
+    screenGui.Name = "UI_" .. math.random(1000, 9999)
     screenGui.Parent = player.PlayerGui
     screenGui.ResetOnSpawn = false
 
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 150, 0, 50)
-    frame.Position = UDim2.new(0.5, -75, 0.1, 0) -- Center-top
+    frame.Size = UDim2.new(0, 200, 0, 100)
+    frame.Position = UDim2.new(0.5, -100, 0.1, 0) -- Center-top
     frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     frame.BorderSizePixel = 0
     frame.Parent = screenGui
+    frame.Active = true -- For dragging
+    frame.Draggable = false -- Controlled manually
 
     local toggleButton = Instance.new("TextButton")
     toggleButton.Size = UDim2.new(0, 100, 0, 30)
-    toggleButton.Position = UDim2.new(0.5, -50, 0.5, -15)
+    toggleButton.Position = UDim2.new(0.5, -50, 0.2, 0)
     toggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
     toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     toggleButton.Text = "Toggle OFF"
     toggleButton.Parent = frame
 
-    -- Corner rounding
+    local speedLabel = Instance.new("TextLabel")
+    speedLabel.Size = UDim2.new(0, 180, 0, 20)
+    speedLabel.Position = UDim2.new(0.5, -90, 0.5, 0)
+    speedLabel.BackgroundTransparency = 1
+    speedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    speedLabel.Text = "Progress Speed % (0-100):"
+    speedLabel.Parent = frame
+
+    local speedInput = Instance.new("TextBox")
+    speedInput.Size = UDim2.new(0, 100, 0, 30)
+    speedInput.Position = UDim2.new(0.5, -50, 0.7, 0)
+    speedInput.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    speedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    speedInput.Text = tostring(progressSpeedPercent)
+    speedInput.Parent = frame
+
+    local hideButton = Instance.new("TextButton")
+    hideButton.Size = UDim2.new(0, 30, 0, 30)
+    hideButton.Position = UDim2.new(1, -40, 0, 5)
+    hideButton.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+    hideButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    hideButton.Text = "X"
+    hideButton.Parent = frame
+
     local uicorner = Instance.new("UICorner")
     uicorner.CornerRadius = UDim.new(0, 8)
     uicorner.Parent = toggleButton
     uicorner:Clone().Parent = frame
+    uicorner:Clone().Parent = speedInput
+    uicorner:Clone().Parent = hideButton
+
+    -- Handle speed input
+    speedInput.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            local value = tonumber(speedInput.Text)
+            if value and value >= 0 and value <= 100 then
+                progressSpeedPercent = value
+                print("Set Progress Speed to " .. value .. "%")
+            else
+                speedInput.Text = tostring(progressSpeedPercent)
+                warn("Invalid input! Use 0-100.")
+            end
+        end
+    end)
+
+    -- Handle hide/show
+    hideButton.MouseButton1Click:Connect(function()
+        uiVisible = not uiVisible
+        frame.Visible = uiVisible
+        hideButton.Text = uiVisible and "X" or "O"
+        print(uiVisible and "UI Shown" or "UI Hidden")
+    end)
+
+    -- Handle dragging
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
+
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+        end
+    end)
+
+    frame.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    frame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
 
     return toggleButton
 end
 
--- Dynamic FishBar path finder
+-- Dynamic FishBar path finder with debug
 local function findFishBar()
-    local gui = player.PlayerGui:FindFirstChild("FishingGUI") or player.PlayerGui:FindFirstChildWhichIsA("ScreenGui")
-    if gui then
-        local bar = gui:FindFirstChild("FishBar") or gui:FindFirstChildWhichIsA("Frame")
-        if bar and bar.Visible then
-            return bar
+    local possibleNames = {"FishingGUI", "FishingMinigame", "Minigame", "FishGui"}
+    local possibleBars = {"FishBar", "ProgressBar", "Progress", "Bar"}
+    
+    for _, guiName in ipairs(possibleNames) do
+        local gui = player.PlayerGui:FindFirstChild(guiName)
+        if gui then
+            for _, barName in ipairs(possibleBars) do
+                local bar = gui:FindFirstChild(barName)
+                if bar then
+                    print("Found FishBar: " .. guiName .. "." .. barName)
+                    return bar
+                end
+            end
         end
     end
+    
+    for _, gui in ipairs(player.PlayerGui:GetChildren()) do
+        if gui:IsA("ScreenGui") then
+            for _, bar in ipairs(gui:GetChildren()) do
+                if bar:IsA("Frame") and bar.Visible then
+                    print("Fallback Found: " .. gui.Name .. "." .. bar.Name)
+                    return bar
+                end
+            end
+        end
+    end
+    warn("FishBar not found! Check PlayerGui in Roblox Studio.")
     return nil
+end
+
+-- Activate Progress Speed Boost
+local function activateProgressBoost()
+    local remote = ReplicatedStorage.packages.Net:FindFirstChild("RF/RequestCache")
+    if remote then
+        pcall(function()
+            remote:InvokeServer("Boost.ProgressSpeedBoost") -- Assume no parameter
+            print("Activated ProgressSpeedBoost: " .. progressSpeedPercent .. "%")
+        end)
+    else
+        warn("RF/RequestCache not found!")
+    end
+    return progressSpeedPercent
 end
 
 -- Mouse follow fish bar with anti-exploit
 local function followFishBar()
     fishBar = findFishBar()
     if not fishBar then
-        warn("FishBar not found! Check GUI path.")
         return
     end
 
+    -- Activate boost
+    local boostPercent = activateProgressBoost()
+    local boostMultiplier = 1 - (boostPercent / 100)
+
     local barPos = fishBar.AbsolutePosition
     local barSize = fishBar.AbsoluteSize
-    local fishPos = barPos.X + (barSize.X * math.random(0.4, 0.6)) -- Random start pos
+    local fishPos = barPos.X + (barSize.X * fishBar.Position.X.Scale)
+    print("FishBar Pos: X=" .. fishPos .. ", Size=" .. barSize.X)
     
     -- Anti-exploit: Random speed & jitter
-    local fishSpeed = math.random(50, 150) -- Pixels/frame
+    local fishSpeed = math.random(50, 150) * boostMultiplier
     local direction = math.random() > 0.5 and 1 or -1
-    local jitter = math.random(-5, 5) -- Small mouse jitter
+    local jitter = math.random(-5, 5)
     local targetX = fishPos + (fishSpeed * direction * math.random()) + jitter
-    local targetY = mouse.Y + math.random(-3, 3) -- Y-axis jitter
+    local targetY = mouse.Y + math.random(-3, 3)
+    print("Target Mouse: X=" .. targetX .. ", Y=" .. targetY)
     
-    -- Anti-exploit: Random tween time (0.25-0.35s to mimic human)
-    local tweenTime = math.random(250, 350) / 1000
+    -- Anti-exploit: Random tween time with boost
+    local baseTweenTime = math.random(250, 350) / 1000
+    local tweenTime = baseTweenTime * boostMultiplier
     local tween = TweenService:Create(mouse, TweenInfo.new(tweenTime, Enum.EasingStyle.Linear), {X = targetX, Y = targetY})
     tween:Play()
     
@@ -85,11 +203,11 @@ local function followFishBar()
     if not reeling then
         reeling = true
         wait(math.random(1700, 2600) / 1000)
-        mouse.Button1Down:Fire() -- Reel
-        wait(math.random(1800, 2200) / 1000) -- Random reel time 1.8-2.2s
+        mouse.Button1Down:Fire()
+        wait(math.random(1800, 2200) / 1000 * boostMultiplier)
         mouse.Button1Up:Fire()
         reeling = false
-        print("Reeled with random miss!")
+        print("Reeled with random miss and " .. boostPercent .. "% boost!")
     end
 end
 
@@ -102,11 +220,10 @@ local function toggleScript(button)
     if enabled then
         connection = RunService.Heartbeat:Connect(function()
             if not enabled then return end
-            -- Anti-exploit: Skip random frames
             frameCounter = frameCounter + 1
             if frameCounter % math.random(2, 5) == 0 then
                 fishBar = findFishBar()
-                if fishBar and fishBar.Visible then
+                if fishBar then
                     followFishBar()
                 end
             end
@@ -124,4 +241,4 @@ toggleButton.MouseButton1Click:Connect(function()
     toggleScript(toggleButton)
 end)
 
-print("Fisch Fish Bar Follow with UI & Anti-Exploit Loaded! Click Toggle button to start.")
+print("Fisch Fish Bar Follow with UI Toggle, Progress Speed Input, Hide/Show, Draggable & Anti-Exploit Loaded! Click Toggle button to start.")
