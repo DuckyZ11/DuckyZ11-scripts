@@ -1,0 +1,127 @@
+-- Fisch Auto Fish Bar Follow Script with UI Toggle & Anti-Exploit (2025)
+-- Features: Track Fish Bar, Random Miss 1.7-2.6s, UI Toggle, Anti-Exploit (Random Timing, Mouse Jitter, Frame Skip)
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+
+local enabled = false
+local reeling = false
+local fishBar = nil
+local connection
+local frameCounter = 0
+
+-- Create UI Toggle (Obfuscated)
+local function createToggleUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "UI_" .. math.random(1000, 9999) -- Random name to avoid detection
+    screenGui.Parent = player.PlayerGui
+    screenGui.ResetOnSpawn = false
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 150, 0, 50)
+    frame.Position = UDim2.new(0.5, -75, 0.1, 0) -- Center-top
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
+
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Size = UDim2.new(0, 100, 0, 30)
+    toggleButton.Position = UDim2.new(0.5, -50, 0.5, -15)
+    toggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleButton.Text = "Toggle OFF"
+    toggleButton.Parent = frame
+
+    -- Corner rounding
+    local uicorner = Instance.new("UICorner")
+    uicorner.CornerRadius = UDim.new(0, 8)
+    uicorner.Parent = toggleButton
+    uicorner:Clone().Parent = frame
+
+    return toggleButton
+end
+
+-- Dynamic FishBar path finder
+local function findFishBar()
+    local gui = player.PlayerGui:FindFirstChild("FishingGUI") or player.PlayerGui:FindFirstChildWhichIsA("ScreenGui")
+    if gui then
+        local bar = gui:FindFirstChild("FishBar") or gui:FindFirstChildWhichIsA("Frame")
+        if bar and bar.Visible then
+            return bar
+        end
+    end
+    return nil
+end
+
+-- Mouse follow fish bar with anti-exploit
+local function followFishBar()
+    fishBar = findFishBar()
+    if not fishBar then
+        warn("FishBar not found! Check GUI path.")
+        return
+    end
+
+    local barPos = fishBar.AbsolutePosition
+    local barSize = fishBar.AbsoluteSize
+    local fishPos = barPos.X + (barSize.X * math.random(0.4, 0.6)) -- Random start pos
+    
+    -- Anti-exploit: Random speed & jitter
+    local fishSpeed = math.random(50, 150) -- Pixels/frame
+    local direction = math.random() > 0.5 and 1 or -1
+    local jitter = math.random(-5, 5) -- Small mouse jitter
+    local targetX = fishPos + (fishSpeed * direction * math.random()) + jitter
+    local targetY = mouse.Y + math.random(-3, 3) -- Y-axis jitter
+    
+    -- Anti-exploit: Random tween time (0.25-0.35s to mimic human)
+    local tweenTime = math.random(250, 350) / 1000
+    local tween = TweenService:Create(mouse, TweenInfo.new(tweenTime, Enum.EasingStyle.Linear), {X = targetX, Y = targetY})
+    tween:Play()
+    
+    -- Anti-exploit: Random miss 1.7-2.6s
+    if not reeling then
+        reeling = true
+        wait(math.random(1700, 2600) / 1000)
+        mouse.Button1Down:Fire() -- Reel
+        wait(math.random(1800, 2200) / 1000) -- Random reel time 1.8-2.2s
+        mouse.Button1Up:Fire()
+        reeling = false
+        print("Reeled with random miss!")
+    end
+end
+
+-- Toggle script
+local function toggleScript(button)
+    enabled = not enabled
+    button.Text = enabled and "Toggle ON" or "Toggle OFF"
+    button.BackgroundColor3 = enabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(100, 100, 100)
+    
+    if enabled then
+        connection = RunService.Heartbeat:Connect(function()
+            if not enabled then return end
+            -- Anti-exploit: Skip random frames
+            frameCounter = frameCounter + 1
+            if frameCounter % math.random(2, 5) == 0 then
+                fishBar = findFishBar()
+                if fishBar and fishBar.Visible then
+                    followFishBar()
+                end
+            end
+        end)
+        print("Fish Bar Follow ON")
+    else
+        if connection then connection:Disconnect() end
+        print("Fish Bar Follow OFF")
+    end
+end
+
+-- Initialize UI
+local toggleButton = createToggleUI()
+toggleButton.MouseButton1Click:Connect(function()
+    toggleScript(toggleButton)
+end)
+
+print("Fisch Fish Bar Follow with UI & Anti-Exploit Loaded! Click Toggle button to start.")
