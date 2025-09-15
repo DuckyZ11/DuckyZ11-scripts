@@ -12,7 +12,7 @@ local Window = redzlib:MakeWindow({
 
 -- Add minimize button
 Window:AddMinimizeButton({
-    Button = { Image = "rbxassetid://137819129207311", BackgroundTransparency = 0 },
+    Button = { Image = "rbxassetid://139438145143663", BackgroundTransparency = 0 },
     Corner = { CornerRadius = UDim.new(35, 1) },
 })
 
@@ -78,7 +78,7 @@ local function lerp(a, b, t)
     return a + (b - a) * t
 end
 
--- Auto Reel (Legit mode, smooth tracking of fish)
+-- Auto Reel (Legit mode, smooth tracking of fish, no unequip)
 local function StartAutoReel()
     if autoreel_running then return end
     autoreel_running = true
@@ -111,10 +111,10 @@ local function StartAutoReel()
                                             local targetX = fish.Position.X.Scale
                                             local targetY = fish.Position.Y.Scale
                                             -- Smoothly interpolate playerbar to fish position
-                                            currentX = lerp(currentX, targetX, 0.1) -- Adjust 0.1 for speed (lower = slower)
-                                            currentY = lerp(currentY, targetY, 0.1)
+                                            currentX = lerp(currentX, targetX, 0.3) -- Increased for smoother tracking
+                                            currentY = lerp(currentY, targetY, 0.3)
                                             playerbar.Position = UDim2.new(currentX, 0, currentY, 0)
-                                            task.wait(0.05) -- Update every 0.05s for smooth movement
+                                            task.wait(0.016) -- Update every 60 FPS (0.016s) for smoother movement
                                             bar = reel:FindFirstChild("bar")
                                             fish = bar and bar:FindFirstChild("fish")
                                             playerbar = bar and bar:FindFirstChild("playerbar")
@@ -145,9 +145,6 @@ local function StartAutoReel()
                                     return
                                 end
                                 task.wait(0.1)
-                            end
-                            if tool.Parent ~= player.Backpack then
-                                tool.Parent = player.Backpack
                             end
                         end
                     end
