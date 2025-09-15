@@ -6,18 +6,18 @@ local redzlib = loadstring(game:HttpGet("https://gist.githubusercontent.com/MjCo
 -- Create window
 local Window = redzlib:MakeWindow({
     Title = "Fisch Auto Reel",
-    SubTitle = "Legit Mode",
+    SubTitle = "Legit & Normal Mode",
     SaveFolder = "FischSettings"
 })
 
 -- Add minimize button (square with rounded corners, 10% larger)
 Window:AddMinimizeButton({
     Button = { 
-        Image = "rbxassetid://137819129207311", 
+        Image = "rbxassetid://139438145143663", 
         BackgroundTransparency = 0,
-        Size = UDim2.new(0, 44, 0, 44) -- Increased size by 10% (from ~40x40 to 44x44)
+        Size = UDim2.new(0, 44, 0, 44)
     },
-    Corner = { CornerRadius = UDim.new(0, 8) } -- Square with rounded corners (8px radius)
+    Corner = { CornerRadius = UDim.new(0, 8) }
 })
 
 -- Create single tab
@@ -36,7 +36,9 @@ local player = Players.LocalPlayer
 -- Initialize settings
 local SETTINGS_FILE = "Fischsv.json"
 local Settings = {
-    AutoReel = false
+    AutoReel = false,
+    NormalMode = false,
+    MissDuration = "1-3s"
 }
 
 -- Load settings from file
@@ -53,7 +55,10 @@ end
 
 -- Variables
 local autoreel = Settings.AutoReel
+local normalmode = Settings.NormalMode
+local missDuration = Settings.MissDuration
 local autoreel_running = false
+local normalmode_running = false
 
 -- Save settings function
 local function SaveSettings()
@@ -82,7 +87,7 @@ local function lerp(a, b, t)
     return a + (b - a) * t
 end
 
--- Auto Reel (Legit mode, ultra-smooth tracking of fish, no unequip)
+-- Auto Reel (Legit mode, perfect tracking)
 local function StartAutoReel()
     if autoreel_running then return end
     autoreel_running = true
@@ -107,25 +112,21 @@ local function StartAutoReel()
                                     local fish = bar and bar:FindFirstChild("fish")
                                     local playerbar = bar and bar:FindFirstChild("playerbar")
                                     if fish and playerbar then
-                                        -- Initialize playerbar position
                                         local currentX = playerbar.Position.X.Scale
                                         local currentY = playerbar.Position.Y.Scale
-                                        -- Track fish ultra-smoothly using lerp
                                         while autoreel and reel and reel.Parent and fish and playerbar do
-                                            local targetX = fish.Position.X.Scale
-                                            local targetY = fish.Position.Y.Scale
-                                            -- Ultra-smooth interpolation
-                                            currentX = lerp(currentX, targetX, 0.15) -- Lower t for smoother, slower tracking
+                                            local targetX = fish.Position.X.Scale + math.random(-0.005, 0.005)
+                                            local targetY = fish.Position.Y.Scale + math.random(-0.005, 0.005)
+                                            currentX = lerp(currentX, targetX, 0.15)
                                             currentY = lerp(currentY, targetY, 0.15)
                                             playerbar.Position = UDim2.new(currentX, 0, currentY, 0)
-                                            task.wait(0.01) -- Update every 100 FPS (0.01s) for ultra-smooth movement
+                                            task.wait(0.01)
                                             bar = reel:FindFirstChild("bar")
                                             fish = bar and bar:FindFirstChild("fish")
                                             playerbar = bar and bar:FindFirstChild("playerbar")
                                         end
-                                        -- Fire reelfinished when minigame UI disappears
                                         if autoreel and not reel.Parent then
-                                            local isPerfect = true -- Default to Perfect for simplicity
+                                            local isPerfect = true
                                             ReplicatedStorage:WaitForChild("events"):WaitForChild("reelfinished"):FireServer(80, isPerfect)
                                         end
                                     else
@@ -166,7 +167,106 @@ local function StartAutoReel()
     end)
 end
 
--- Auto Reel Toggle
+-- Auto Reel Normal (mimics human with occasional misses)
+local function StartAutoReelNormal()
+    if normalmode_running then return end
+    normalmode_running = true
+    task.spawn(function()
+        while normalmode do
+            local gui = player:FindFirstChild("PlayerGui")
+            local reel = gui and gui:FindFirstChild("reel")
+            while normalmode and gui and not reel do
+                reel = gui:FindFirstChild("reel")
+                task.wait(0.1)
+            end
+            if reel then
+                local char = player.Character
+                if char then
+                    for _, tool in ipairs(char:GetChildren()) do
+                        if tool:IsA("Tool") and tool:FindFirstChild("events") and tool.events:FindFirstChild("reset") then
+                            local resetEvent = tool.events.reset
+                            while normalmode and reel and reel.Parent and tool.Parent == char do
+                                local success, err = pcall(function()
+                                    resetEvent:FireServer()
+                                    local bar = reel:FindFirstChild("bar")
+                                    local fish = bar and bar:FindFirstChild("fish")
+                                    local playerbar = bar and bar:FindFirstChild("playerbar")
+                                    if fish and playerbar then
+                                        local currentX = playerbar.Position.X.Scale
+                                        local currentY = playerbar.Position.Y.Scale
+                                        local tracking = true
+                                        local missTime = 0
+                                        local missDurationSec = missDuration == "1-3s" and math.random(1, 3) or
+                                                               missDuration == "1-6s" and math.random(1, 6) or
+                                                               math.random(1, 8)
+                                        local missStart = tick()
+                                        while normalmode and reel and reel.Parent and fish and playerbar do
+                                            if tracking then
+                                                local targetX = fish.Position.X.Scale + math.random(-0.01, 0.01)
+                                                local targetY = fish.Position.Y.Scale + math.random(-0.01, 0.01)
+                                                currentX = lerp(currentX, targetX, 0.15)
+                                                currentY = lerp(currentY, targetY, 0.15)
+                                                playerbar.Position = UDim2.new(currentX, 0, currentY, 0)
+                                            end
+                                            if tick() - missStart >= missDurationSec then
+                                                tracking = not tracking
+                                                missTime = tick()
+                                                missDurationSec = missDuration == "1-3s" and math.random(1, 3) or
+                                                                 missDuration == "1-6s" and math.random(1, 6) or
+                                                                 math.random(1, 8)
+                                            end
+                                            if not tracking and tick() - missTime >= 0.5 then
+                                                tracking = true
+                                                missStart = tick()
+                                            end
+                                            task.wait(0.01)
+                                            bar = reel:FindFirstChild("bar")
+                                            fish = bar and bar:FindFirstChild("fish")
+                                            playerbar = bar and bar:FindFirstChild("playerbar")
+                                        end
+                                        if normalmode and not reel.Parent then
+                                            local isPerfect = math.random(0, 1) == 1 -- Randomize for human-like result
+                                            ReplicatedStorage:WaitForChild("events"):WaitForChild("reelfinished"):FireServer(70, isPerfect)
+                                        end
+                                    else
+                                        Window:Dialog({
+                                            Title = "Warning",
+                                            Text = "Reel UI elements not found! Ensure you're fishing.",
+                                            Options = {{"OK", function() end}}
+                                        })
+                                    end
+                                end)
+                                if not success then
+                                    warn("Error in AutoReelNormal: " .. err)
+                                    Window:Dialog({
+                                        Title = "Error",
+                                        Text = "Auto Reel Normal failed: " .. err,
+                                        Options = {{"OK", function() end}}
+                                    })
+                                    normalmode = false
+                                    Settings.NormalMode = false
+                                    SaveSettings()
+                                    return
+                                end
+                                task.wait(0.1)
+                            end
+                        end
+                    end
+                end
+            else
+                Window:Dialog({
+                    Title = "Warning",
+                    Text = "Reel UI not found! Start fishing first.",
+                    Options = {{"OK", function() end}}
+                })
+            end
+            task.wait(0.1)
+        end
+        normalmode_running = false
+    end)
+end
+
+-- Auto Reel Toggle (Legit mode)
 MainTab:AddToggle({
     Name = "Auto Reel (Legit)",
     Flag = "AutoReel",
@@ -174,6 +274,11 @@ MainTab:AddToggle({
     Callback = function(state)
         autoreel = state
         Settings.AutoReel = state
+        if state and normalmode then
+            normalmode = false
+            Settings.NormalMode = false
+            normalmode_running = false
+        end
         SaveSettings()
         if state then
             local success, err = pcall(StartAutoReel)
@@ -192,9 +297,78 @@ MainTab:AddToggle({
             autoreel_running = false
             Window:Dialog({
                 Title = "Auto Reel",
-                Text = "Auto Reel stopped",
+                Text = "Auto Reel (Legit) stopped",
                 Options = {{"OK", function() end}}
             })
+        end
+    end
+})
+
+-- Auto Reel Normal Button
+MainTab:AddButton({
+    Name = "Auto Reel (Normal)",
+    Callback = function()
+        normalmode = not normalmode
+        Settings.NormalMode = normalmode
+        if normalmode and autoreel then
+            autoreel = false
+            Settings.AutoReel = false
+            autoreel_running = false
+        end
+        SaveSettings()
+        if normalmode then
+            local success, err = pcall(StartAutoReelNormal)
+            if not success then
+                warn("Error in StartAutoReelNormal: " .. err)
+                Window:Dialog({
+                    Title = "Error",
+                    Text = "Failed to start Auto Reel Normal: " .. err,
+                    Options = {{"OK", function() end}}
+                })
+                normalmode = false
+                Settings.NormalMode = false
+                SaveSettings()
+            else
+                Window:Dialog({
+                    Title = "Auto Reel",
+                    Text = "Auto Reel (Normal) started",
+                    Options = {{"OK", function() end}}
+                })
+            end
+        else
+            normalmode_running = false
+            Window:Dialog({
+                Title = "Auto Reel",
+                Text = "Auto Reel (Normal) stopped",
+                Options = {{"OK", function() end}}
+            })
+        end
+    end
+})
+
+-- Miss Duration Dropdown
+MainTab:AddDropdown({
+    Name = "Miss Duration",
+    Options = {"1-3s", "1-6s", "1-8s"},
+    Default = Settings.MissDuration or "1-3s",
+    Callback = function(choice)
+        missDuration = choice
+        Settings.MissDuration = choice
+        SaveSettings()
+        if normalmode then
+            normalmode_running = false
+            local success, err = pcall(StartAutoReelNormal)
+            if not success then
+                warn("Error restarting AutoReelNormal: " .. err)
+                Window:Dialog({
+                    Title = "Error",
+                    Text = "Failed to restart Auto Reel Normal: " .. err,
+                    Options = {{"OK", function() end}}
+                })
+                normalmode = false
+                Settings.NormalMode = false
+                SaveSettings()
+            end
         end
     end
 })
