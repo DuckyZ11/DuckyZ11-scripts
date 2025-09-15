@@ -13,7 +13,7 @@ local Window = redzlib:MakeWindow({
 -- Add minimize button (square with rounded corners, 10% larger)
 Window:AddMinimizeButton({
     Button = { 
-        Image = "rbxassetid://139438145143663", 
+        Image = "rbxassetid://137819129207311", 
         BackgroundTransparency = 0,
         Size = UDim2.new(0, 44, 0, 44) -- Increased size by 10% (from ~40x40 to 44x44)
     },
