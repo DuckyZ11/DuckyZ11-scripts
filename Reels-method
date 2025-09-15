@@ -1,240 +1,649 @@
--- Fisch Auto Reel Script with Lag Reduction, UI Toggle, Dropdown Mode, Hide/Show, Draggable (Mobile) & Anti-Exploit (2025)
--- Features: Auto Reel (Legit/Blatant), Random Miss 1.7-2.6s (Legit), UI Toggle, Dropdown Mode, Hide/Show UI, Draggable UI (Touch), Anti-Exploit
-
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+-- Core logic remains the same
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
 
-local enabled = false
-local reeling = false
-local autoReelConnection
-local frameCounter = 0
-local uiVisible = true
-local reelMode = "Legit" -- Default mode
-local cachedReel, cachedPlayerbar, cachedFish = nil, nil, nil
+-- Load rod names
+local rodNames = {}
+local rodsFolder = ReplicatedStorage:WaitForChild("resources"):WaitForChild("items"):WaitForChild("rods")
+for _, rod in ipairs(rodsFolder:GetChildren()) do
+    table.insert(rodNames, rod.Name)
+end
 
--- Create UI Toggle, Dropdown, Hide/Show
-local function createToggleUI()
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "UI_" .. math.random(1000, 9999)
-    screenGui.Parent = player.PlayerGui
-    screenGui.ResetOnSpawn = false
+-- Load teleport spots
+local tpFolder = workspace:WaitForChild("world"):WaitForChild("spawns"):WaitForChild("TpSpots")
+local tpNames = {}
+for _, spot in ipairs(tpFolder:GetChildren()) do
+    table.insert(tpNames, spot.Name)
+end
+table.sort(tpNames, function(a, b) return a:lower() < b:lower() end)
 
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 200, 0, 120)
-    frame.Position = UDim2.new(0.5, -100, 0.1, 0)
-    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    frame.BorderSizePixel = 0
-    frame.Parent = screenGui
-    frame.Active = true
+-- Settings management
+local SETTINGS_FILE = "Fischsv.json"
+local Settings = {
+    AutoCast = false,
+    AutoReel = false,
+    AutoShake = false,
+    AutoSell = false,
+    TpToIsland = false,
+    SelectedIsland = nil,
+    SavedPosition = nil,
+    CatchMethod = "Perfect",
+    ReelMethod = "Instant",
+    WalkOnWater = false,
+    AutoEquipRod = false
+}
 
-    local toggleButton = Instance.new("TextButton")
-    toggleButton.Size = UDim2.new(0, 120, 0, 40)
-    toggleButton.Position = UDim2.new(0.5, -60, 0.2, 0)
-    toggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-    toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    toggleButton.Text = "Toggle OFF"
-    toggleButton.TextScaled = true
-    toggleButton.Parent = frame
-
-    local modeLabel = Instance.new("TextLabel")
-    modeLabel.Size = UDim2.new(0, 160, 0, 20)
-    modeLabel.Position = UDim2.new(0.5, -80, 0.5, -5)
-    modeLabel.BackgroundTransparency = 1
-    modeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    modeLabel.Text = "Mode: " .. reelMode
-    modeLabel.TextScaled = true
-    modeLabel.Parent = frame
-
-    local modeButton = Instance.new("TextButton")
-    modeButton.Size = UDim2.new(0, 120, 0, 40)
-    modeButton.Position = UDim2.new(0.5, -60, 0.7, -5)
-    modeButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-    modeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    modeButton.Text = "Switch Mode"
-    modeButton.TextScaled = true
-    modeButton.Parent = frame
-
-    local hideButton = Instance.new("TextButton")
-    hideButton.Size = UDim2.new(0, 50, 0, 50)
-    hideButton.Position = UDim2.new(1, -60, 0, 5)
-    hideButton.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
-    hideButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    hideButton.Text = "X"
-    hideButton.TextScaled = true
-    hideButton.Parent = frame
-
-    local uicorner = Instance.new("UICorner")
-    uicorner.CornerRadius = UDim.new(0, 8)
-    uicorner.Parent = toggleButton
-    uicorner:Clone().Parent = frame
-    uicorner:Clone().Parent = modeButton
-    uicorner:Clone().Parent = hideButton
-
-    -- Handle mode switch
-    modeButton.MouseButton1Click:Connect(function()
-        reelMode = (reelMode == "Legit") and "Blatant" or "Legit"
-        modeLabel.Text = "Mode: " .. reelMode
-        print("Switched to " .. reelMode .. " mode")
+-- Load settings from file
+if pcall(function() return readfile(SETTINGS_FILE) end) then
+    local success, data = pcall(function()
+        return HttpService:JSONDecode(readfile(SETTINGS_FILE))
     end)
+    if success and data then
+        for k, v in pairs(data) do Settings[k] = v end
+    end
+end
 
-    -- Handle hide/show
-    hideButton.MouseButton1Click:Connect(function()
-        uiVisible = not uiVisible
-        frame.Visible = uiVisible
-        hideButton.Text = uiVisible and "X" or "O"
+-- Handle saved position
+local savedPosition = nil
+if Settings.SavedPosition then
+    local sp = Settings.SavedPosition
+    if sp.X and sp.Y and sp.Z and sp.Yaw then
+        local pos = Vector3.new(sp.X, sp.Y, sp.Z)
+        local yawRad = math.rad(sp.Yaw)
+        savedPosition = CFrame.new(pos) * CFrame.Angles(0, yawRad, 0)
+    end
+end
+
+local function SaveSettings()
+    pcall(function()
+        local dataToSave = {}
+        for k, v in pairs(Settings) do
+            dataToSave[k] = v
+        end
+        if savedPosition then
+            local pos = savedPosition.Position
+            local _, yRot, _ = savedPosition:ToEulerAnglesXYZ()
+            dataToSave.SavedPosition = {
+                X = pos.X,
+                Y = pos.Y,
+                Z = pos.Z,
+                Yaw = math.deg(yRot)
+            }
+        else
+            dataToSave.SavedPosition = nil
+        end
+        writefile(SETTINGS_FILE, HttpService:JSONEncode(dataToSave))
     end)
+end
 
-    -- Handle dragging (Touch)
-    local dragging = false
-    local dragStart = nil
-    local startPos = nil
-    local lastTouchTime = 0
+-- Variables
+local autocast = Settings.AutoCast
+local autoreel = Settings.AutoReel
+local autoEquipRodEnabled = Settings.AutoEquipRod
+local CatchMethod = Settings.CatchMethod
+local autoshake = Settings.AutoShake
+local autosell = Settings.AutoSell
+local teleporting = Settings.TpToIsland
+local selectedIsland = Settings.SelectedIsland
+local reelMethod = Settings.ReelMethod
+local walkOnWaterEnabled = Settings.WalkOnWater
+local walkspeedValue = 16
+local jumppowerValue = 50
+local noclipEnabled = false
+local infinityJumpEnabled = false
+local changePlayerEnabled = false
+local selectedPlayer = nil
+local tpToPlayerEnabled = false
+local autoEquipRod_running = false
+local autocast_running = false
+local autoreel_running = false
+local autoshake_running = false
+local autosell_running = false
+local teleport_running = false
 
-    frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            local currentTime = tick()
-            if currentTime - lastTouchTime > 0.1 then -- Debounce touch
-                dragging = true
-                dragStart = input.Position
-                startPos = frame.Position
-                lastTouchTime = currentTime
+-- Core functions (unch杭
+
+System: anged from the original script)
+local function EquipRods()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local backpack = player:WaitForChild("Backpack")
+
+    local hasRodInHand = false
+    for _, tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") and table.find(rodNames, tool.Name) then
+            hasRodInHand = true
+            break
+        end
+    end
+
+    if hasRodInHand then return end
+
+    for _, rodName in ipairs(rodNames) do
+        for _, tool in ipairs(backpack:GetChildren()) do
+            if tool:IsA("Tool") and tool.Name == rodName then
+                tool.Parent = char
+                return
             end
         end
-    end)
+    end
+end
 
-    frame.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.Touch then
-            local delta = input.Position - dragStart
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+local function GetPlayerNames()
+    local names = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        table.insert(names, plr.Name)
+    end
+    table.sort(names, function(a, b) return a:lower() < b:lower() end)
+    return names
+end
+
+local function GetHumanoidRootPart()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart")
+end
+
+local function StartAutoEquipRod()
+    if autoEquipRod_running then return end
+    autoEquipRod_running = true
+    task.spawn(function()
+        while autoEquipRodEnabled do
+            EquipRods()
+            task.wait(.1)
         end
+        autoEquipRod_running = false
     end)
-
-    frame.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-
-    return toggleButton, frame
 end
 
--- Dynamic GUI path finder with debug
-local function findReelComponents()
-    local reel = player.PlayerGui:FindFirstChild("reel")
-    if not reel then
-        return nil, nil, nil
-    end
-    local bar = reel:FindFirstChild("bar")
-    local playerbar = bar and bar:FindFirstChild("playerbar")
-    local fish = bar and bar:FindFirstChild("fish")
-    if playerbar and fish then
-        return reel, playerbar, fish
-    end
-    return nil, nil, nil
-end
-
--- Auto Reel function (Legit)
-local function autoReel(playerbar, fish)
-    if playerbar and fish then
-        playerbar.Position = fish.Position
-    end
-end
-
--- No Perfect function (Legit)
-local function noperfect(playerbar)
-    if playerbar then
-        playerbar.Position = UDim2.new(0, 0, -35, 0)
-        task.wait(0.2)
-    end
-end
-
--- Start Auto Reel
-local function startAutoReel()
-    if reeling or not enabled then return end
-    cachedReel, cachedPlayerbar, cachedFish = findReelComponents()
-    if not (cachedReel and cachedPlayerbar and cachedFish) then return end
-
-    if reelMode == "Legit" then
-        noperfect(cachedPlayerbar)
-        task.wait(math.random(1700, 2600) / 1000) -- Random miss
-        reeling = true
-        autoReelConnection = RunService.Heartbeat:Connect(function()
-            frameCounter = frameCounter + 1
-            if frameCounter % 3 == 0 then -- Fixed frame skip
-                autoReel(cachedPlayerbar, cachedFish)
+local function StartAutoCastThrow()
+    if autocast_running then return end
+    autocast_running = true
+    task.spawn(function()
+        while autocast do
+            local char = player.Character
+            local rod = nil
+            for _, tool in ipairs(char:GetChildren()) do
+                if tool:IsA("Tool") and table.find(rodNames, tool.Name) then 
+                    rod = tool 
+                    break 
+                end
             end
-        end)
-    elseif reelMode == "Blatant" then
-        reeling = true
-        task.spawn(function()
-            task.wait(0.1) -- Small delay to avoid spam
-            pcall(function()
-                cachedPlayerbar:GetPropertyChangedSignal("Position"):Wait()
-                local events = ReplicatedStorage:FindFirstChild("events")
-                if events then
-                    local reelfinished = events:FindFirstChild("reelfinished")
-                    if reelfinished then
-                        reelfinished:FireServer(100, false)
+            if rod then
+                local cast = rod:FindFirstChild("events") and rod.events:FindFirstChild("cast")
+                if cast then 
+                    pcall(function() cast:FireServer(100, true) end) 
+                end
+            end
+            task.wait(.3)
+        end
+        autocast_running = false
+    end)
+end
+
+local function StartAutoCastTeleport()
+    if teleport_running then return end
+    teleport_running = true
+    task.spawn(function()
+        while autocast do
+            local hrp = GetHumanoidRootPart()
+            if hrp and savedPosition then
+                pcall(function()
+                    hrp.CFrame = savedPosition
+                end)
+            end
+            task.wait()
+        end
+        teleport_running = false
+    end)
+end
+
+local function StartAutoReel()
+    if autoreel_running then return end
+    autoreel_running = true
+    task.spawn(function()
+        while autoreel do
+            local gui = player:FindFirstChild("PlayerGui")
+            local reel = gui and gui:FindFirstChild("reel")
+
+            while autoreel and gui and not reel do
+                reel = gui:FindFirstChild("reel")
+                task.wait(0.1)
+            end
+
+            if reel then
+                local char = player.Character
+                if char then
+                    for _, rodName in ipairs(rodNames) do
+                        local rod = char:FindFirstChild(rodName)
+                        if rod then
+                            local resetEvent = rod:FindFirstChild("events") and rod.events:FindFirstChild("reset")
+                            if resetEvent then
+                                while autoreel and reel and reel.Parent and rod.Parent == char do
+                                    pcall(function() resetEvent:FireServer() end)
+
+                                    local bar = reel:FindFirstChild("bar")
+                                    local fish = bar and bar:FindFirstChild("fish")
+                                    local playerbar = bar and bar:FindFirstChild("playerbar")
+
+                                    pcall(function()
+                                        if reelMethod == "Legit" then
+                                            if fish and playerbar then
+                                                playerbar.Position = fish.Position
+                                            end
+                                        elseif reelMethod == "Instant" then
+                                            local isPerfect
+                                            if CatchMethod == "Perfect" then
+                                                isPerfect = true
+                                            elseif CatchMethod == "Random" then
+                                                isPerfect = (math.random(0, 1) == 1)
+                                            else
+                                                isPerfect = true
+                                            end
+                                            game:GetService("ReplicatedStorage"):WaitForChild("events"):WaitForChild("reelfinished"):FireServer(100, isPerfect)
+                                        end
+                                    end)
+
+                                    task.wait(0.05)
+                                    reel = gui:FindFirstChild("reel")
+                                end
+
+                                if rod.Parent ~= player.Backpack then
+                                    rod.Parent = player.Backpack
+                                end
+                            end
+                        end
                     end
                 end
+            end
+
+            task.wait(0.1)
+        end
+        autoreel_running = false
+    end)
+end
+
+local function StartAutoShake()
+    if autoshake_running then return end
+    autoshake_running = true
+    task.spawn(function()
+        while autoshake do
+            local shakeButton = player.PlayerGui:FindFirstChild("shakeui")
+            shakeButton = shakeButton and shakeButton:FindFirstChild("safezone")
+            shakeButton = shakeButton and shakeButton:FindFirstChild("button")
+            shakeButton = shakeButton and shakeButton:FindFirstChild("shake")
+            if shakeButton then pcall(function() shakeButton:FireServer() end) end
+            task.wait(0.05)
+        end
+        autoshake_running = false
+    end)
+end
+
+local function StartAutoSell()
+    if autosell_running then return end
+    autosell_running = true
+    task.spawn(function()
+        while autosell do
+            local npcFolder = workspace:WaitForChild("world"):WaitForChild("npcs")
+            local targetNpc = nil
+            for _, npc in ipairs(npcFolder:GetChildren()) do
+                if string.find(npc.Name, "Merchant") then targetNpc = npc break end
+            end
+            if targetNpc then
+                local args = {{voice = 12, npc = targetNpc, idle = targetNpc:WaitForChild("description"):WaitForChild("idle")}}
+                pcall(function() ReplicatedStorage:WaitForChild("events"):WaitForChild("SellAll"):InvokeServer(unpack(args)) end)
+            end
+            task.wait(1)
+        end
+        autosell_running = false
+    end)
+end
+
+local function SetWalkOnWater(state)
+    walkOnWaterEnabled = state
+    Settings.WalkOnWater = state
+    SaveSettings()
+
+    local fishingZone = workspace:WaitForChild("zones"):WaitForChild("fishing")
+    for _, part in ipairs(fishingZone:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = state
+        end
+    end
+end
+
+local function StartTeleport()
+    if teleport_running then return end
+    teleport_running = true
+    task.spawn(function()
+        while teleporting do
+            local hrp = GetHumanoidRootPart()
+            local spot = tpFolder:FindFirstChild(selectedIsland)
+            if hrp and spot then
+                pcall(function() hrp.CFrame = spot.CFrame + Vector3.new(0, 5, 0) end)
+            end
+            task.wait()
+        end
+        teleport_running = false
+    end)
+end
+
+-- redzlib UI setup
+local redzlib = loadstring(game:HttpGet("https://gist.githubusercontent.com/MjContiga1/54c07e52fc2aab8873b68d91a71d11c6/raw/fb4f1d6a7c89465f3b39bc00eeff09af24b88f20/Redz%2520hub.lua"))()
+
+-- Create window
+local Window = redzlib:MakeWindow({
+    Title = "Fisch - x2zu v0.1 Beta",
+    SubTitle = "Automation Script",
+    SaveFolder = "FischConfigs"
+})
+
+Window:AddMinimizeButton({
+    Button = { Image = "rbxassetid://74493757521216", BackgroundTransparency = 0 },
+    Corner = { CornerRadius = UDim.new(35, 1) },
+})
+
+-- Create tabs
+local MainTab = Window:MakeTab({"Main", "rbxassetid://7733960981"})
+local PlayerTab = Window:MakeTab({"Local Player", "rbxassetid://7743875962"})
+local IslandsPlayerTab = Window:MakeTab({"Islands & Player", "rbxassetid://7743875962"})
+
+-- Select default tab
+Window:SelectTab(MainTab)
+
+-- Main Tab: Fisch Features Section
+local FischSection = MainTab:AddSection({"Fisch Features"})
+
+FischSection:AddToggle({
+    Name = "Auto Cast",
+    Default = autocast,
+    Callback = function(state)
+        autocast = state
+        Settings.AutoCast = state
+        SaveSettings()
+        if state then
+            StartAutoCastThrow()
+            StartAutoCastTeleport()
+        end
+    end
+})
+
+FischSection:AddToggle({
+    Name = "Auto Reel",
+    Default = autoreel,
+    Callback = function(state)
+        autoreel = state
+        Settings.AutoReel = state
+        SaveSettings()
+        if state then StartAutoReel() end
+    end
+})
+
+FischSection:AddToggle({
+    Name = "Auto Equip Rod",
+    Default = autoEquipRodEnabled,
+    Callback = function(state)
+        autoEquipRodEnabled = state
+        Settings.AutoEquipRod = state
+        SaveSettings()
+        if state then StartAutoEquipRod() end
+    end
+})
+
+FischSection:AddToggle({
+    Name = "Auto Shake",
+    Default = autoshake,
+    Callback = function(state)
+        autoshake = state
+        Settings.AutoShake = state
+        SaveSettings()
+        if state then StartAutoShake() end
+    end
+})
+
+FischSection:AddToggle({
+    Name = "Auto Sell",
+    Default = autosell,
+    Callback = function(state)
+        autosell = state
+        Settings.AutoSell = state
+        SaveSettings()
+        if state then StartAutoSell() end
+    end
+})
+
+-- Main Tab: Setting Farm Section
+local SettingSection = MainTab:AddSection({"Setting Farm"})
+
+SettingSection:AddDropdown({
+    Name = "Catch Method",
+    Options = {"Perfect", "Random"},
+    Default = CatchMethod or "Perfect",
+    Callback = function(choice)
+        CatchMethod = choice
+        Settings.CatchMethod = choice
+        SaveSettings()
+    end
+})
+
+SettingSection:AddDropdown({
+    Name = "Reel Method",
+    Options = {"Legit", "Instant"},
+    Default = reelMethod or "Instant",
+    Callback = function(choice)
+        reelMethod = choice
+        Settings.ReelMethod = choice
+        SaveSettings()
+        if autoreel then
+            autoreel_running = false
+            StartAutoReel()
+        end
+        if reelMethod == "Instant" then
+            local isPerfect = (CatchMethod == "Perfect") or (CatchMethod == "Random" and math.random(0, 1) == 1)
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("events"):WaitForChild("reelfinished"):FireServer(100, isPerfect)
             end)
-            reeling = false
-        end)
+        end
     end
-end
+})
 
--- Stop Auto Reel
-local function stopAutoReel()
-    if autoReelConnection then
-        autoReelConnection:Disconnect()
-        autoReelConnection = nil
+SettingSection:AddButton({
+    Name = "Save Position",
+    Callback = function()
+        local hrp = GetHumanoidRootPart()
+        if hrp then
+            savedPosition = hrp.CFrame
+            local pos = savedPosition.Position
+            local _, yRot, _ = savedPosition:ToEulerAnglesXYZ()
+            Settings.SavedPosition = {
+                X = pos.X,
+                Y = pos.Y,
+                Z = pos.Z,
+                Yaw = math.deg(yRot)
+            }
+            SaveSettings()
+        end
     end
-    reeling = false
-    cachedReel, cachedPlayerbar, cachedFish = nil, nil, nil
-end
+})
 
--- Toggle script
-local function toggleScript(button)
-    enabled = not enabled
-    button.Text = enabled and "Toggle ON" or "Toggle OFF"
-    button.BackgroundColor3 = enabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(100, 100, 100)
-    
-    if enabled then
-        startAutoReel()
-    else
-        stopAutoReel()
+-- Player Tab: Local Player Section
+local PlayerSection = PlayerTab:AddSection({"Local Player"})
+
+PlayerSection:AddSlider({
+    Name = "Walkspeed",
+    Min = 50,
+    Max = 500,
+    Default = 100,
+    Callback = function(value)
+        walkspeedValue = value
+        if changePlayerEnabled then
+            local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.WalkSpeed = value
+            end
+        end
     end
-end
+})
 
--- Monitor reel GUI
-player.PlayerGui.DescendantAdded:Connect(function(descendant)
-    if enabled and descendant.Name == "playerbar" and descendant.Parent and descendant.Parent.Name == "bar" then
-        startAutoReel()
+PlayerSection:AddSlider({
+    Name = "Jumppower",
+    Min = 50,
+    Max = 500,
+    Default = 50,
+    Callback = function(value)
+        jumppowerValue = value
+        if changePlayerEnabled then
+            local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.JumpPower = value
+            end
+        end
+    end
+})
+
+PlayerSection:AddToggle({
+    Name = "Change Player",
+    Default = false,
+    Callback = function(state)
+        changePlayerEnabled = state
+        if state then
+            local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.WalkSpeed = walkspeedValue
+                humanoid.JumpPower = jumppowerValue
+            end
+        end
+    end
+})
+
+PlayerSection:AddToggle({
+    Name = "Noclip",
+    Default = false,
+    Callback = function(state)
+        noclipEnabled = state
+    end
+})
+
+PlayerSection:AddToggle({
+    Name = "Infinity Jump",
+    Default = false,
+    Callback = function(state)
+        infinityJumpEnabled = state
+    end
+})
+
+PlayerSection:AddToggle({
+    Name = "Walk on Water",
+    Default = walkOnWaterEnabled,
+    Callback = function(state)
+        SetWalkOnWater(state)
+    end
+})
+
+PlayerSection:AddButton({
+    Name = "Fly",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"))()
+    end
+})
+
+-- Islands & Player Tab: Island Section
+local IslandSection = IslandsPlayerTab:AddSection({"Island"})
+
+IslandSection:AddDropdown({
+    Name = "Select Islands",
+    Options = tpNames,
+    Default = selectedIsland or tpNames[1],
+    Callback = function(choice)
+        selectedIsland = choice
+        Settings.SelectedIsland = choice
+        SaveSettings()
+    end
+})
+
+IslandSection:AddToggle({
+    Name = "Tp to Island",
+    Default = teleporting,
+    Callback = function(state)
+        teleporting = state
+        Settings.TpToIsland = state
+        SaveSettings()
+        if state then StartTeleport() end
+    end
+})
+
+-- Islands & Player Tab: Player Section
+local PlayerTpSection = IslandsPlayerTab:AddSection({"Player"})
+
+PlayerTpSection:AddDropdown({
+    Name = "Select Player",
+    Options = GetPlayerNames(),
+    Default = selectedPlayer or Players.LocalPlayer.Name,
+    Callback = function(choice)
+        selectedPlayer = choice
+    end
+})
+
+PlayerTpSection:AddToggle({
+    Name = "Tp to Player",
+    Default = tpToPlayerEnabled,
+    Callback = function(state)
+        tpToPlayerEnabled = state
+        if state then
+            task.spawn(function()
+                while tpToPlayerEnabled do
+                    local hrp = GetHumanoidRootPart()
+                    local targetPlayer = Players:FindFirstChild(selectedPlayer)
+                    if hrp and targetPlayer and targetPlayer.Character then
+                        local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        if targetHRP then
+                            pcall(function()
+                                hrp.CFrame = targetHRP.CFrame + Vector3.new(0, 0, 0)
+                            end)
+                        end
+                    end
+                    task.wait()
+                end
+            end)
+        end
+    end
+})
+
+-- Update player dropdown when players join/leave
+Players.PlayerAdded:Connect(function()
+    PlayerTpSection:UpdateDropdown("Select Player", GetPlayerNames())
+end)
+
+Players.PlayerRemoving:Connect(function()
+    PlayerTpSection:UpdateDropdown("Select Player", GetPlayerNames())
+end)
+
+-- Handle walkspeed, jumppower, and noclip
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        local char = player.Character
+        if char then
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid and changePlayerEnabled then
+                humanoid.WalkSpeed = walkspeedValue
+                humanoid.JumpPower = jumppowerValue
+            end
+
+            if noclipEnabled then
+                for _, part in ipairs(char:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end
     end
 end)
 
-player.PlayerGui.DescendantRemoving:Connect(function(descendant)
-    if descendant.Name == "playerbar" and descendant.Parent and descendant.Parent.Name == "bar" then
-        stopAutoReel()
-    end
-end)
-
--- Initialize UI
-local toggleButton, frame = createToggleUI()
-toggleButton.MouseButton1Click:Connect(function()
-    toggleScript(toggleButton)
-end)
-
--- Check initial reel state
-if player.PlayerGui:FindFirstChild("reel") and 
-   player.PlayerGui.reel:FindFirstChild("bar") and 
-   player.PlayerGui.reel.bar:FindFirstChild("playerbar") then
-    if enabled then
-        startAutoReel()
-    end
-end
-
-print("Fisch Auto Reel (Lag Reduced) with UI Toggle, Dropdown Mode, Hide/Show, Draggable (Mobile) & Anti-Exploit Loaded!")
+-- Handle infinite jump
+game:GetService("UserInputService").JumpRequest:Connect(function()
+    if infinityJumpEnabled then
+        local char = player.Character
+        if char then
+            local humanoid = char:
