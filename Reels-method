@@ -10,10 +10,14 @@ local Window = redzlib:MakeWindow({
     SaveFolder = "FischSettings"
 })
 
--- Add minimize button
+-- Add minimize button (square with rounded corners, 10% larger)
 Window:AddMinimizeButton({
-    Button = { Image = "rbxassetid://139438145143663", BackgroundTransparency = 0 },
-    Corner = { CornerRadius = UDim.new(35, 1) },
+    Button = { 
+        Image = "rbxassetid://139438145143663", 
+        BackgroundTransparency = 0,
+        Size = UDim2.new(0, 44, 0, 44) -- Increased size by 10% (from ~40x40 to 44x44)
+    },
+    Corner = { CornerRadius = UDim.new(0, 8) } -- Square with rounded corners (8px radius)
 })
 
 -- Create single tab
@@ -73,12 +77,12 @@ local function GetHumanoidRootPart()
     return char:WaitForChild("HumanoidRootPart")
 end
 
--- Linear interpolation for smooth movement
+-- Linear interpolation for ultra-smooth movement
 local function lerp(a, b, t)
     return a + (b - a) * t
 end
 
--- Auto Reel (Legit mode, smooth tracking of fish, no unequip)
+-- Auto Reel (Legit mode, ultra-smooth tracking of fish, no unequip)
 local function StartAutoReel()
     if autoreel_running then return end
     autoreel_running = true
@@ -106,15 +110,15 @@ local function StartAutoReel()
                                         -- Initialize playerbar position
                                         local currentX = playerbar.Position.X.Scale
                                         local currentY = playerbar.Position.Y.Scale
-                                        -- Track fish smoothly using lerp
+                                        -- Track fish ultra-smoothly using lerp
                                         while autoreel and reel and reel.Parent and fish and playerbar do
                                             local targetX = fish.Position.X.Scale
                                             local targetY = fish.Position.Y.Scale
-                                            -- Smoothly interpolate playerbar to fish position
-                                            currentX = lerp(currentX, targetX, 0.3) -- Increased for smoother tracking
-                                            currentY = lerp(currentY, targetY, 0.3)
+                                            -- Ultra-smooth interpolation
+                                            currentX = lerp(currentX, targetX, 0.15) -- Lower t for smoother, slower tracking
+                                            currentY = lerp(currentY, targetY, 0.15)
                                             playerbar.Position = UDim2.new(currentX, 0, currentY, 0)
-                                            task.wait(0.016) -- Update every 60 FPS (0.016s) for smoother movement
+                                            task.wait(0.01) -- Update every 100 FPS (0.01s) for ultra-smooth movement
                                             bar = reel:FindFirstChild("bar")
                                             fish = bar and bar:FindFirstChild("fish")
                                             playerbar = bar and bar:FindFirstChild("playerbar")
