@@ -1,19 +1,27 @@
 --[[
     WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
 ]]
-local Compkiller = loadstring(game:HttpGet("https://raw.githubusercontent.com/4lpaca-pin/CompKiller/refs/heads/main/src/source.luau"))()
-local Notifier = Compkiller.newNotify()
-local ConfigManager = Compkiller:ConfigManager({Directory="Compkiller-UI", Config="Fisch-Configs"})
-Compkiller:Loader("rbxassetid://74493757521216", 2.5).yield()
+local redzlib = loadstring(game:HttpGet("https://gist.githubusercontent.com/MjContiga1/54c07e52fc2aab8873b68d91a71d11c6/raw/fb4f1d6a7c89465f3b39bc00eeff09af24b88f20/Redz%2520hub.lua"))()
 
 -- Create window
-local Window = Compkiller.new({
-    Name = "Fisch - x2zu v0.1 Beta",
-    Keybind = "LeftAlt",
-    Logo = "rbxassetid://74493757521216",
-    Scale = Compkiller.Scale.Window,
-    TextSize = 15
+local Window = redzlib:MakeWindow({
+    Title = "Fisch Auto Reel",
+    SubTitle = "Legit Mode",
+    SaveFolder = "FischSettings"
 })
+
+-- Add minimize button
+Window:AddMinimizeButton({
+    Button = { Image = "rbxassetid://139438145143663", BackgroundTransparency = 0 },
+    Corner = { CornerRadius = UDim.new(35, 1) },
+})
+
+-- Create single tab
+local MainTab = Window:MakeTab({"Main", "rbxassetid://7733960981"})
+Window:SelectTab(MainTab)
+
+-- Add section
+local Section = MainTab:AddSection({"Fisch Auto Reel"})
 
 -- Initialize services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -24,11 +32,7 @@ local player = Players.LocalPlayer
 -- Initialize settings
 local SETTINGS_FILE = "Fischsv.json"
 local Settings = {
-    AutoCast = false,
-    AutoReel = false,
-    CatchMethod = "Perfect",
-    ReelMethod = "Legit",
-    SavedPosition = nil
+    AutoReel = false
 }
 
 -- Load settings from file
@@ -43,23 +47,8 @@ if pcall(function() return readfile(SETTINGS_FILE) end) then
     end
 end
 
--- Initialize saved position
-local savedPosition = nil
-if Settings.SavedPosition then
-    local sp = Settings.SavedPosition
-    if sp.X and sp.Y and sp.Z and sp.Yaw then
-        local pos = Vector3.new(sp.X, sp.Y, sp.Z)
-        local yawRad = math.rad(sp.Yaw)
-        savedPosition = CFrame.new(pos) * CFrame.Angles(0, yawRad, 0)
-    end
-end
-
 -- Variables
-local autocast = Settings.AutoCast
 local autoreel = Settings.AutoReel
-local CatchMethod = Settings.CatchMethod
-local reelMethod = Settings.ReelMethod
-local autocast_running = false
 local autoreel_running = false
 
 -- Save settings function
@@ -69,24 +58,11 @@ local function SaveSettings()
         for k, v in pairs(Settings) do
             dataToSave[k] = v
         end
-        if savedPosition then
-            local pos = savedPosition.Position
-            local _, yRot, _ = savedPosition:ToEulerAnglesXYZ()
-            dataToSave.SavedPosition = {
-                X = pos.X,
-                Y = pos.Y,
-                Z = pos.Z,
-                Yaw = math.deg(yRot)
-            }
-        else
-            dataToSave.SavedPosition = nil
-        end
         writefile(SETTINGS_FILE, HttpService:JSONEncode(dataToSave))
-        Notifier.new({
+        Window:Dialog({
             Title = "Settings",
-            Content = "Settings saved successfully!",
-            Duration = 3,
-            Icon = "rbxassetid://74493757521216"
+            Text = "Settings saved successfully!",
+            Options = {{"OK", function() end}}
         })
     end)
 end
@@ -97,98 +73,7 @@ local function GetHumanoidRootPart()
     return char:WaitForChild("HumanoidRootPart")
 end
 
--- Auto Cast Throw
-local function StartAutoCastThrow()
-    if autocast_running then return end
-    autocast_running = true
-    task.spawn(function()
-        while autocast do
-            local char = player.Character
-            local rod = nil
-            for _, tool in ipairs(char:GetChildren()) do
-                if tool:IsA("Tool") and tool:FindFirstChild("events") and tool.events:FindFirstChild("cast") then
-                    rod = tool
-                    break
-                end
-            end
-            if rod then
-                local cast = rod.events.cast
-                local success, err = pcall(function()
-                    cast:FireServer(100, true)
-                end)
-                if not success then
-                    warn("Error in AutoCastThrow: " .. err)
-                    Notifier.new({
-                        Title = "Error",
-                        Content = "Auto Cast Throw failed: " .. err,
-                        Duration = 5,
-                        Icon = "rbxassetid://120245531583106"
-                    })
-                    autocast = false
-                    Settings.AutoCast = false
-                    SaveSettings()
-                    return
-                end
-            else
-                Notifier.new({
-                    Title = "Warning",
-                    Content = "No fishing rod equipped!",
-                    Duration = 5,
-                    Icon = "rbxassetid://120245531583106"
-                })
-                autocast = false
-                Settings.AutoCast = false
-                SaveSettings()
-                return
-            end
-            task.wait(0.3) -- Adjust based on game mechanics
-        end
-        autocast_running = false
-    end)
-end
-
--- Auto Cast Teleport
-local function StartAutoCastTeleport()
-    if not savedPosition then
-        Notifier.new({
-            Title = "Warning",
-            Content = "Please save a position first!",
-            Duration = 5,
-            Icon = "rbxassetid://120245531583106"
-        })
-        autocast = false
-        Settings.AutoCast = false
-        SaveSettings()
-        return
-    end
-    task.spawn(function()
-        while autocast do
-            local hrp = GetHumanoidRootPart()
-            if hrp and savedPosition then
-                local success, err = pcall(function()
-                    hrp.CFrame = savedPosition
-                    ReplicatedStorage:WaitForChild("events"):WaitForChild("castteleport"):FireServer(savedPosition.Position)
-                end)
-                if not success then
-                    warn("Error in AutoCastTeleport: " .. err)
-                    Notifier.new({
-                        Title = "Error",
-                        Content = "Auto Cast Teleport failed: " .. err,
-                        Duration = 5,
-                        Icon = "rbxassetid://120245531583106"
-                    })
-                    autocast = false
-                    Settings.AutoCast = false
-                    SaveSettings()
-                    return
-                end
-            end
-            task.wait(1) -- Adjust based on game mechanics
-        end
-    end)
-end
-
--- Auto Reel
+-- Auto Reel (Legit mode only)
 local function StartAutoReel()
     if autoreel_running then return end
     autoreel_running = true
@@ -206,33 +91,45 @@ local function StartAutoReel()
                     for _, tool in ipairs(char:GetChildren()) do
                         if tool:IsA("Tool") and tool:FindFirstChild("events") and tool.events:FindFirstChild("reset") then
                             local resetEvent = tool.events.reset
-                            while autoreel and reel and reel.Parent and tool.Parent == char do
+                            local gameActive = true
+                            while autoreel and reel and reel.Parent and tool.Parent == char and gameActive do
                                 local success, err = pcall(function()
                                     resetEvent:FireServer()
-                                    if reelMethod == "Legit" then
-                                        local bar = reel:FindFirstChild("bar")
-                                        local fish = bar and bar:FindFirstChild("fish")
-                                        local playerbar = bar and bar:FindFirstChild("playerbar")
-                                        if fish and playerbar then
-                                            -- Simulate legit reeling by aligning playerbar to fish
-                                            playerbar.Position = UDim2.new(fish.Position.X.Scale, 0, fish.Position.Y.Scale, 0)
-                                            -- Fire reelfinished with lower score for Legit
-                                            local isPerfect = (CatchMethod == "Perfect") or (CatchMethod == "Random" and math.random(0,1) == 1)
-                                            task.wait(0.5) -- Simulate reel timing
+                                    local bar = reel:FindFirstChild("bar")
+                                    local fish = bar and bar:FindFirstChild("fish")
+                                    local playerbar = bar and bar:FindFirstChild("playerbar")
+                                    if fish and playerbar then
+                                        -- Simulate legit reeling by aligning playerbar to fish
+                                        playerbar.Position = UDim2.new(fish.Position.X.Scale, 0, fish.Position.Y.Scale, 0)
+                                        -- Wait for minigame to complete (adjustable duration)
+                                        for i = 1, 30 do -- Simulate 3 seconds of minigame (0.1s * 30)
+                                            if not reel or not reel.Parent or not autoreel then
+                                                gameActive = false
+                                                break
+                                            end
+                                            task.wait(0.1)
+                                        end
+                                        if gameActive then
+                                            -- Fire reelfinished after minigame completes
+                                            local isPerfect = true -- Default to Perfect for simplicity
                                             ReplicatedStorage:WaitForChild("events"):WaitForChild("reelfinished"):FireServer(80, isPerfect)
                                         end
-                                    elseif reelMethod == "Instant" then
-                                        local isPerfect = (CatchMethod == "Perfect") or (CatchMethod == "Random" and math.random(0,1) == 1)
-                                        ReplicatedStorage:WaitForChild("events"):WaitForChild("reelfinished"):FireServer(100, isPerfect)
+                                    else
+                                        -- If UI elements are missing, stop minigame
+                                        gameActive = false
+                                        Window:Dialog({
+                                            Title = "Warning",
+                                            Text = "Reel UI not found! Ensure you're fishing.",
+                                            Options = {{"OK", function() end}}
+                                        })
                                     end
                                 end)
                                 if not success then
                                     warn("Error in AutoReel: " .. err)
-                                    Notifier.new({
+                                    Window:Dialog({
                                         Title = "Error",
-                                        Content = "Auto Reel failed: " .. err,
-                                        Duration = 5,
-                                        Icon = "rbxassetid://120245531583106"
+                                        Text = "Auto Reel failed: " .. err,
+                                        Options = {{"OK", function() end}}
                                     })
                                     autoreel = false
                                     Settings.AutoReel = false
@@ -240,7 +137,6 @@ local function StartAutoReel()
                                     return
                                 end
                                 task.wait(0.05)
-                                reel = gui:FindFirstChild("reel")
                             end
                             if tool.Parent ~= player.Backpack then
                                 tool.Parent = player.Backpack
@@ -248,6 +144,12 @@ local function StartAutoReel()
                         end
                     end
                 end
+            else
+                Window:Dialog({
+                    Title = "Warning",
+                    Text = "Reel UI not found! Start fishing first.",
+                    Options = {{"OK", function() end}}
+                })
             end
             task.wait(0.1)
         end
@@ -259,74 +161,16 @@ end
 local function StopAutoReel()
     autoreel_running = false
     warn("StopAutoReel called")
+    Window:Dialog({
+        Title = "Auto Reel",
+        Text = "Auto Reel stopped",
+        Options = {{"OK", function() end}}
+    })
 end
 
--- Create Main Tab
-local MainTab = Window:DrawTab({Name="Main", Icon="apple", EnableScrolling=true})
-local FischSection = MainTab:DrawSection({Name="Fisch Features", Position="left"})
-local SettingSection = MainTab:DrawSection({Name="Setting Farm", Position="right"})
-
--- Notifier for UI load
-Notifier.new({
-    Title = "Fisch UI",
-    Content = "Loaded!",
-    Duration = 5,
-    Icon = "rbxassetid://120245531583106"
-})
-
--- Auto Cast Toggle
-FischSection:AddToggle({
-    Name = "Auto Cast",
-    Flag = "AutoCast",
-    Default = autocast,
-    Callback = function(state)
-        autocast = state
-        Settings.AutoCast = state
-        SaveSettings()
-        if state then
-            if savedPosition or reelMethod == "Instant" then
-                local success, err = pcall(function()
-                    StartAutoCastThrow()
-                    StartAutoCastTeleport()
-                end)
-                if not success then
-                    warn("Error in AutoCast: " .. err)
-                    Notifier.new({
-                        Title = "Error",
-                        Content = "Failed to start Auto Cast: " .. err,
-                        Duration = 5,
-                        Icon = "rbxassetid://120245531583106"
-                    })
-                    autocast = false
-                    Settings.AutoCast = false
-                    SaveSettings()
-                end
-            else
-                Notifier.new({
-                    Title = "Warning",
-                    Text = "Please save a position first or use Instant Reel!",
-                    Duration = 5,
-                    Icon = "rbxassetid://120245531583106"
-                })
-                autocast = false
-                Settings.AutoCast = false
-                SaveSettings()
-            end
-        else
-            autocast_running = false
-            Notifier.new({
-                Title = "Auto Cast",
-                Content = "Auto Cast stopped",
-                Duration = 3,
-                Icon = "rbxassetid://74493757521216"
-            })
-        end
-    end
-})
-
 -- Auto Reel Toggle
-FischSection:AddToggle({
-    Name = "Auto Reel",
+MainTab:AddToggle({
+    Name = "Auto Reel (Legit)",
     Flag = "AutoReel",
     Default = autoreel,
     Callback = function(state)
@@ -337,11 +181,10 @@ FischSection:AddToggle({
             local success, err = pcall(StartAutoReel)
             if not success then
                 warn("Error in StartAutoReel: " .. err)
-                Notifier.new({
+                Window:Dialog({
                     Title = "Error",
-                    Content = "Failed to start Auto Reel: " .. err,
-                    Duration = 5,
-                    Icon = "rbxassetid://120245531583106"
+                    Text = "Failed to start Auto Reel: " .. err,
+                    Options = {{"OK", function() end}}
                 })
                 autoreel = false
                 Settings.AutoReel = false
@@ -352,111 +195,6 @@ FischSection:AddToggle({
             if not success then
                 warn("Error in StopAutoReel: " .. err)
             end
-            Notifier.new({
-                Title = "Auto Reel",
-                Content = "Auto Reel stopped",
-                Duration = 3,
-                Icon = "rbxassetid://74493757521216"
-            })
-        end
-    end
-})
-
--- Catch Method Dropdown
-SettingSection:AddDropdown({
-    Name = "Catch Method",
-    Values = {"Perfect", "Random"},
-    Default = CatchMethod or "Perfect",
-    Callback = function(choice)
-        CatchMethod = choice
-        Settings.CatchMethod = choice
-        SaveSettings()
-        if autoreel then
-            autoreel_running = false
-            local success, err = pcall(StartAutoReel)
-            if not success then
-                warn("Error restarting AutoReel: " .. err)
-                Notifier.new({
-                    Title = "Error",
-                    Content = "Failed to restart Auto Reel: " .. err,
-                    Duration = 5,
-                    Icon = "rbxassetid://120245531583106"
-                })
-            end
-        end
-    end
-})
-
--- Reel Method Dropdown
-SettingSection:AddDropdown({
-    Name = "Reel Method",
-    Values = {"Legit", "Instant"},
-    Default = reelMethod or "Legit",
-    Callback = function(choice)
-        reelMethod = choice
-        Settings.ReelMethod = choice
-        SaveSettings()
-        if autoreel then
-            autoreel_running = false
-            local success, err = pcall(StartAutoReel)
-            if not success then
-                warn("Error restarting AutoReel: " .. err)
-                Notifier.new({
-                    Title = "Error",
-                    Content = "Failed to restart Auto Reel: " .. err,
-                    Duration = 5,
-                    Icon = "rbxassetid://120245531583106"
-                })
-            end
-        end
-        if reelMethod == "Instant" then
-            local isPerfect = (CatchMethod == "Perfect") or (CatchMethod == "Random" and math.random(0,1) == 1)
-            local success, err = pcall(function()
-                ReplicatedStorage:WaitForChild("events"):WaitForChild("reelfinished"):FireServer(100, isPerfect)
-            end)
-            if not success then
-                warn("Error firing reelfinished: " .. err)
-                Notifier.new({
-                    Title = "Error",
-                    Content = "Failed to fire reelfinished event: " .. err,
-                    Duration = 5,
-                    Icon = "rbxassetid://120245531583106"
-                })
-            end
-        end
-    end
-})
-
--- Save Position Button
-SettingSection:AddButton({
-    Name = "Save Position",
-    Callback = function()
-        local hrp = GetHumanoidRootPart()
-        if hrp then
-            savedPosition = hrp.CFrame
-            local pos = savedPosition.Position
-            local _, yRot, _ = savedPosition:ToEulerAnglesXYZ()
-            Settings.SavedPosition = {
-                X = pos.X,
-                Y = pos.Y,
-                Z = pos.Z,
-                Yaw = math.deg(yRot)
-            }
-            SaveSettings()
-            Notifier.new({
-                Title = "Success",
-                Content = "Position saved successfully!",
-                Duration = 3,
-                Icon = "rbxassetid://74493757521216"
-            })
-        else
-            warn("Cannot save position: HumanoidRootPart not found")
-            Notifier.new({
-                Title = "Error",
-                Content = "Cannot save position: HumanoidRootPart not found",
-                Duration = 5,
-                Icon = "rbxassetid://120245531583106"
-            })
         end
     end
 })
