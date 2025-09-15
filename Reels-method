@@ -12,7 +12,7 @@ local Window = redzlib:MakeWindow({
 
 -- Add minimize button
 Window:AddMinimizeButton({
-    Button = { Image = "rbxassetid://139438145143663", BackgroundTransparency = 0 },
+    Button = { Image = "rbxassetid://137819129207311", BackgroundTransparency = 0 },
     Corner = { CornerRadius = UDim.new(35, 1) },
 })
 
@@ -73,7 +73,12 @@ local function GetHumanoidRootPart()
     return char:WaitForChild("HumanoidRootPart")
 end
 
--- Auto Reel (Legit mode only)
+-- Linear interpolation for smooth movement
+local function lerp(a, b, t)
+    return a + (b - a) * t
+end
+
+-- Auto Reel (Legit mode, smooth tracking of fish)
 local function StartAutoReel()
     if autoreel_running then return end
     autoreel_running = true
@@ -91,35 +96,38 @@ local function StartAutoReel()
                     for _, tool in ipairs(char:GetChildren()) do
                         if tool:IsA("Tool") and tool:FindFirstChild("events") and tool.events:FindFirstChild("reset") then
                             local resetEvent = tool.events.reset
-                            local gameActive = true
-                            while autoreel and reel and reel.Parent and tool.Parent == char and gameActive do
+                            while autoreel and reel and reel.Parent and tool.Parent == char do
                                 local success, err = pcall(function()
                                     resetEvent:FireServer()
                                     local bar = reel:FindFirstChild("bar")
                                     local fish = bar and bar:FindFirstChild("fish")
                                     local playerbar = bar and bar:FindFirstChild("playerbar")
                                     if fish and playerbar then
-                                        -- Simulate legit reeling by aligning playerbar to fish
-                                        playerbar.Position = UDim2.new(fish.Position.X.Scale, 0, fish.Position.Y.Scale, 0)
-                                        -- Wait for minigame to complete (adjustable duration)
-                                        for i = 1, 30 do -- Simulate 3 seconds of minigame (0.1s * 30)
-                                            if not reel or not reel.Parent or not autoreel then
-                                                gameActive = false
-                                                break
-                                            end
-                                            task.wait(0.1)
+                                        -- Initialize playerbar position
+                                        local currentX = playerbar.Position.X.Scale
+                                        local currentY = playerbar.Position.Y.Scale
+                                        -- Track fish smoothly using lerp
+                                        while autoreel and reel and reel.Parent and fish and playerbar do
+                                            local targetX = fish.Position.X.Scale
+                                            local targetY = fish.Position.Y.Scale
+                                            -- Smoothly interpolate playerbar to fish position
+                                            currentX = lerp(currentX, targetX, 0.1) -- Adjust 0.1 for speed (lower = slower)
+                                            currentY = lerp(currentY, targetY, 0.1)
+                                            playerbar.Position = UDim2.new(currentX, 0, currentY, 0)
+                                            task.wait(0.05) -- Update every 0.05s for smooth movement
+                                            bar = reel:FindFirstChild("bar")
+                                            fish = bar and bar:FindFirstChild("fish")
+                                            playerbar = bar and bar:FindFirstChild("playerbar")
                                         end
-                                        if gameActive then
-                                            -- Fire reelfinished after minigame completes
+                                        -- Fire reelfinished when minigame UI disappears
+                                        if autoreel and not reel.Parent then
                                             local isPerfect = true -- Default to Perfect for simplicity
                                             ReplicatedStorage:WaitForChild("events"):WaitForChild("reelfinished"):FireServer(80, isPerfect)
                                         end
                                     else
-                                        -- If UI elements are missing, stop minigame
-                                        gameActive = false
                                         Window:Dialog({
                                             Title = "Warning",
-                                            Text = "Reel UI not found! Ensure you're fishing.",
+                                            Text = "Reel UI elements not found! Ensure you're fishing.",
                                             Options = {{"OK", function() end}}
                                         })
                                     end
@@ -136,7 +144,7 @@ local function StartAutoReel()
                                     SaveSettings()
                                     return
                                 end
-                                task.wait(0.05)
+                                task.wait(0.1)
                             end
                             if tool.Parent ~= player.Backpack then
                                 tool.Parent = player.Backpack
@@ -155,17 +163,6 @@ local function StartAutoReel()
         end
         autoreel_running = false
     end)
-end
-
--- Stop Auto Reel
-local function StopAutoReel()
-    autoreel_running = false
-    warn("StopAutoReel called")
-    Window:Dialog({
-        Title = "Auto Reel",
-        Text = "Auto Reel stopped",
-        Options = {{"OK", function() end}}
-    })
 end
 
 -- Auto Reel Toggle
@@ -191,10 +188,12 @@ MainTab:AddToggle({
                 SaveSettings()
             end
         else
-            local success, err = pcall(StopAutoReel)
-            if not success then
-                warn("Error in StopAutoReel: " .. err)
-            end
+            autoreel_running = false
+            Window:Dialog({
+                Title = "Auto Reel",
+                Text = "Auto Reel stopped",
+                Options = {{"OK", function() end}}
+            })
         end
     end
 })
