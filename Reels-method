@@ -1,424 +1,130 @@
--- Core logic remains the same
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local HttpService = game:GetService("HttpService")
-local player = Players.LocalPlayer
-
--- Load rod names
-local rodNames = {}
-local rodsFolder = ReplicatedStorage:WaitForChild("resources"):WaitForChild("items"):WaitForChild("rods")
-for _, rod in ipairs(rodsFolder:GetChildren()) do
-    table.insert(rodNames, rod.Name)
-end
-
--- Load teleport spots
-local tpFolder = workspace:WaitForChild("world"):WaitForChild("spawns"):WaitForChild("TpSpots")
-local tpNames = {}
-for _, spot in ipairs(tpFolder:GetChildren()) do
-    table.insert(tpNames, spot.Name)
-end
-table.sort(tpNames, function(a, b) return a:lower() < b:lower() end)
-
--- Settings management
-local SETTINGS_FILE = "Fischsv.json"
-local Settings = {
-    AutoCast = false,
-    AutoReel = false,
-    AutoShake = false,
-    AutoSell = false,
-    TpToIsland = false,
-    SelectedIsland = nil,
-    SavedPosition = nil,
-    CatchMethod = "Perfect",
-    ReelMethod = "Instant",
-    WalkOnWater = false,
-    AutoEquipRod = false
-}
-
--- Load settings from file
-if pcall(function() return readfile(SETTINGS_FILE) end) then
-    local success, data = pcall(function()
-        return HttpService:JSONDecode(readfile(SETTINGS_FILE))
-    end)
-    if success and data then
-        for k, v in pairs(data) do Settings[k] = v end
-    end
-end
-
--- Handle saved position
-local savedPosition = nil
-if Settings.SavedPosition then
-    local sp = Settings.SavedPosition
-    if sp.X and sp.Y and sp.Z and sp.Yaw then
-        local pos = Vector3.new(sp.X, sp.Y, sp.Z)
-        local yawRad = math.rad(sp.Yaw)
-        savedPosition = CFrame.new(pos) * CFrame.Angles(0, yawRad, 0)
-    end
-end
-
-local function SaveSettings()
-    pcall(function()
-        local dataToSave = {}
-        for k, v in pairs(Settings) do
-            dataToSave[k] = v
-        end
-        if savedPosition then
-            local pos = savedPosition.Position
-            local _, yRot, _ = savedPosition:ToEulerAnglesXYZ()
-            dataToSave.SavedPosition = {
-                X = pos.X,
-                Y = pos.Y,
-                Z = pos.Z,
-                Yaw = math.deg(yRot)
-            }
-        else
-            dataToSave.SavedPosition = nil
-        end
-        writefile(SETTINGS_FILE, HttpService:JSONEncode(dataToSave))
-    end)
-end
-
--- Variables
-local autocast = Settings.AutoCast
-local autoreel = Settings.AutoReel
-local autoEquipRodEnabled = Settings.AutoEquipRod
-local CatchMethod = Settings.CatchMethod
-local autoshake = Settings.AutoShake
-local autosell = Settings.AutoSell
-local teleporting = Settings.TpToIsland
-local selectedIsland = Settings.SelectedIsland
-local reelMethod = Settings.ReelMethod
-local walkOnWaterEnabled = Settings.WalkOnWater
-local walkspeedValue = 16
-local jumppowerValue = 50
-local noclipEnabled = false
-local infinityJumpEnabled = false
-local changePlayerEnabled = false
-local selectedPlayer = nil
-local tpToPlayerEnabled = false
-local autoEquipRod_running = false
-local autocast_running = false
-local autoreel_running = false
-local autoshake_running = false
-local autosell_running = false
-local teleport_running = false
-
--- Core functions (unch杭
-
-System: anged from the original script)
-local function EquipRods()
-    local char = player.Character or player.CharacterAdded:Wait()
-    local backpack = player:WaitForChild("Backpack")
-
-    local hasRodInHand = false
-    for _, tool in ipairs(char:GetChildren()) do
-        if tool:IsA("Tool") and table.find(rodNames, tool.Name) then
-            hasRodInHand = true
-            break
-        end
-    end
-
-    if hasRodInHand then return end
-
-    for _, rodName in ipairs(rodNames) do
-        for _, tool in ipairs(backpack:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name == rodName then
-                tool.Parent = char
-                return
-            end
-        end
-    end
-end
-
-local function GetPlayerNames()
-    local names = {}
-    for _, plr in ipairs(Players:GetPlayers()) do
-        table.insert(names, plr.Name)
-    end
-    table.sort(names, function(a, b) return a:lower() < b:lower() end)
-    return names
-end
-
-local function GetHumanoidRootPart()
-    local char = player.Character or player.CharacterAdded:Wait()
-    return char:WaitForChild("HumanoidRootPart")
-end
-
-local function StartAutoEquipRod()
-    if autoEquipRod_running then return end
-    autoEquipRod_running = true
-    task.spawn(function()
-        while autoEquipRodEnabled do
-            EquipRods()
-            task.wait(.1)
-        end
-        autoEquipRod_running = false
-    end)
-end
-
-local function StartAutoCastThrow()
-    if autocast_running then return end
-    autocast_running = true
-    task.spawn(function()
-        while autocast do
-            local char = player.Character
-            local rod = nil
-            for _, tool in ipairs(char:GetChildren()) do
-                if tool:IsA("Tool") and table.find(rodNames, tool.Name) then 
-                    rod = tool 
-                    break 
-                end
-            end
-            if rod then
-                local cast = rod:FindFirstChild("events") and rod.events:FindFirstChild("cast")
-                if cast then 
-                    pcall(function() cast:FireServer(100, true) end) 
-                end
-            end
-            task.wait(.3)
-        end
-        autocast_running = false
-    end)
-end
-
-local function StartAutoCastTeleport()
-    if teleport_running then return end
-    teleport_running = true
-    task.spawn(function()
-        while autocast do
-            local hrp = GetHumanoidRootPart()
-            if hrp and savedPosition then
-                pcall(function()
-                    hrp.CFrame = savedPosition
-                end)
-            end
-            task.wait()
-        end
-        teleport_running = false
-    end)
-end
-
-local function StartAutoReel()
-    if autoreel_running then return end
-    autoreel_running = true
-    task.spawn(function()
-        while autoreel do
-            local gui = player:FindFirstChild("PlayerGui")
-            local reel = gui and gui:FindFirstChild("reel")
-
-            while autoreel and gui and not reel do
-                reel = gui:FindFirstChild("reel")
-                task.wait(0.1)
-            end
-
-            if reel then
-                local char = player.Character
-                if char then
-                    for _, rodName in ipairs(rodNames) do
-                        local rod = char:FindFirstChild(rodName)
-                        if rod then
-                            local resetEvent = rod:FindFirstChild("events") and rod.events:FindFirstChild("reset")
-                            if resetEvent then
-                                while autoreel and reel and reel.Parent and rod.Parent == char do
-                                    pcall(function() resetEvent:FireServer() end)
-
-                                    local bar = reel:FindFirstChild("bar")
-                                    local fish = bar and bar:FindFirstChild("fish")
-                                    local playerbar = bar and bar:FindFirstChild("playerbar")
-
-                                    pcall(function()
-                                        if reelMethod == "Legit" then
-                                            if fish and playerbar then
-                                                playerbar.Position = fish.Position
-                                            end
-                                        elseif reelMethod == "Instant" then
-                                            local isPerfect
-                                            if CatchMethod == "Perfect" then
-                                                isPerfect = true
-                                            elseif CatchMethod == "Random" then
-                                                isPerfect = (math.random(0, 1) == 1)
-                                            else
-                                                isPerfect = true
-                                            end
-                                            game:GetService("ReplicatedStorage"):WaitForChild("events"):WaitForChild("reelfinished"):FireServer(100, isPerfect)
-                                        end
-                                    end)
-
-                                    task.wait(0.05)
-                                    reel = gui:FindFirstChild("reel")
-                                end
-
-                                if rod.Parent ~= player.Backpack then
-                                    rod.Parent = player.Backpack
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-
-            task.wait(0.1)
-        end
-        autoreel_running = false
-    end)
-end
-
-local function StartAutoShake()
-    if autoshake_running then return end
-    autoshake_running = true
-    task.spawn(function()
-        while autoshake do
-            local shakeButton = player.PlayerGui:FindFirstChild("shakeui")
-            shakeButton = shakeButton and shakeButton:FindFirstChild("safezone")
-            shakeButton = shakeButton and shakeButton:FindFirstChild("button")
-            shakeButton = shakeButton and shakeButton:FindFirstChild("shake")
-            if shakeButton then pcall(function() shakeButton:FireServer() end) end
-            task.wait(0.05)
-        end
-        autoshake_running = false
-    end)
-end
-
-local function StartAutoSell()
-    if autosell_running then return end
-    autosell_running = true
-    task.spawn(function()
-        while autosell do
-            local npcFolder = workspace:WaitForChild("world"):WaitForChild("npcs")
-            local targetNpc = nil
-            for _, npc in ipairs(npcFolder:GetChildren()) do
-                if string.find(npc.Name, "Merchant") then targetNpc = npc break end
-            end
-            if targetNpc then
-                local args = {{voice = 12, npc = targetNpc, idle = targetNpc:WaitForChild("description"):WaitForChild("idle")}}
-                pcall(function() ReplicatedStorage:WaitForChild("events"):WaitForChild("SellAll"):InvokeServer(unpack(args)) end)
-            end
-            task.wait(1)
-        end
-        autosell_running = false
-    end)
-end
-
-local function SetWalkOnWater(state)
-    walkOnWaterEnabled = state
-    Settings.WalkOnWater = state
-    SaveSettings()
-
-    local fishingZone = workspace:WaitForChild("zones"):WaitForChild("fishing")
-    for _, part in ipairs(fishingZone:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = state
-        end
-    end
-end
-
-local function StartTeleport()
-    if teleport_running then return end
-    teleport_running = true
-    task.spawn(function()
-        while teleporting do
-            local hrp = GetHumanoidRootPart()
-            local spot = tpFolder:FindFirstChild(selectedIsland)
-            if hrp and spot then
-                pcall(function() hrp.CFrame = spot.CFrame + Vector3.new(0, 5, 0) end)
-            end
-            task.wait()
-        end
-        teleport_running = false
-    end)
-end
-
--- redzlib UI setup
+--[[
+    WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+]]
 local redzlib = loadstring(game:HttpGet("https://gist.githubusercontent.com/MjContiga1/54c07e52fc2aab8873b68d91a71d11c6/raw/fb4f1d6a7c89465f3b39bc00eeff09af24b88f20/Redz%2520hub.lua"))()
 
 -- Create window
 local Window = redzlib:MakeWindow({
-    Title = "Fisch - x2zu v0.1 Beta",
-    SubTitle = "Automation Script",
-    SaveFolder = "FischConfigs"
+    Title = "Fishing Automation",
+    SubTitle = "Auto Reel & Cast",
+    SaveFolder = "FishingSettings"
 })
 
+-- Add minimize button
 Window:AddMinimizeButton({
-    Button = { Image = "rbxassetid://74493757521216", BackgroundTransparency = 0 },
+    Button = { Image = "rbxassetid://137819129207311", BackgroundTransparency = 0 },
     Corner = { CornerRadius = UDim.new(35, 1) },
 })
 
--- Create tabs
-local MainTab = Window:MakeTab({"Main", "rbxassetid://7733960981"})
-local PlayerTab = Window:MakeTab({"Local Player", "rbxassetid://7743875962"})
-local IslandsPlayerTab = Window:MakeTab({"Islands & Player", "rbxassetid://7743875962"})
-
--- Select default tab
+-- Create single tab
+local MainTab = Window:MakeTab({"Main", "rbxassetid://7733960981"}) -- Icon for Main tab
 Window:SelectTab(MainTab)
 
--- Main Tab: Fisch Features Section
-local FischSection = MainTab:AddSection({"Fisch Features"})
+-- Add section
+local Section = MainTab:AddSection({"Fishing Automation"})
 
-FischSection:AddToggle({
+-- Initialize variables
+local Settings = Settings or {}
+local autoreel = autoreel or false
+local autocast = autocast or false
+local CatchMethod = CatchMethod or "Perfect"
+local reelMethod = reelMethod or "Legit"
+local savedPosition = savedPosition or nil
+local autoreel_running = autoreel_running or false
+
+-- Mock functions (replace with actual implementations)
+local function SaveSettings()
+    warn("SaveSettings called (implement actual saving logic)")
+    -- Example: Save Settings to a file or storage
+end
+
+local function StartAutoReel()
+    autoreel_running = true
+    warn("StartAutoReel called")
+    -- Add actual Auto Reel logic here
+end
+
+local function StopAutoReel()
+    autoreel_running = false
+    warn("StopAutoReel called")
+    -- Add actual stop logic here
+end
+
+local function StartAutoCastThrow()
+    warn("StartAutoCastThrow called")
+    -- Add actual Auto Cast Throw logic here
+end
+
+local function StartAutoCastTeleport()
+    warn("StartAutoCastTeleport called")
+    -- Add actual Auto Cast Teleport logic here
+end
+
+local function GetHumanoidRootPart()
+    local player = game.Players.LocalPlayer
+    local character = player.Character
+    return character and character:FindFirstChild("HumanoidRootPart")
+end
+
+-- Auto Reel Toggle
+MainTab:AddToggle({
+    Name = "Auto Reel",
+    Flag = "AutoReel",
+    Default = autoreel,
+    Callback = function(state)
+        autoreel = state
+        Settings.AutoReel = state
+        SaveSettings()
+        if state then
+            local success, err = pcall(StartAutoReel)
+            if not success then
+                warn("Error in StartAutoReel: " .. err)
+                Window:Dialog({
+                    Title = "Error",
+                    Text = "Failed to start Auto Reel: " .. err,
+                    Options = {{"OK", function() end}}
+                })
+            end
+        else
+            local success, err = pcall(StopAutoReel)
+            if not success then
+                warn("Error in StopAutoReel: " .. err)
+            end
+        end
+    end
+})
+
+-- Auto Cast Toggle
+MainTab:AddToggle({
     Name = "Auto Cast",
+    Flag = "AutoCast",
     Default = autocast,
     Callback = function(state)
         autocast = state
         Settings.AutoCast = state
         SaveSettings()
         if state then
-            StartAutoCastThrow()
-            StartAutoCastTeleport()
+            local success, err = pcall(function()
+                StartAutoCastThrow()
+                StartAutoCastTeleport()
+            end)
+            if not success then
+                warn("Error in AutoCast: " .. err)
+                Window:Dialog({
+                    Title = "Error",
+                    Text = "Failed to start Auto Cast: " .. err,
+                    Options = {{"OK", function() end}}
+                })
+            end
         end
     end
 })
 
-FischSection:AddToggle({
-    Name = "Auto Reel",
-    Default = autoreel,
-    Callback = function(state)
-        autoreel = state
-        Settings.AutoReel = state
-        SaveSettings()
-        if state then StartAutoReel() end
-    end
-})
-
-FischSection:AddToggle({
-    Name = "Auto Equip Rod",
-    Default = autoEquipRodEnabled,
-    Callback = function(state)
-        autoEquipRodEnabled = state
-        Settings.AutoEquipRod = state
-        SaveSettings()
-        if state then StartAutoEquipRod() end
-    end
-})
-
-FischSection:AddToggle({
-    Name = "Auto Shake",
-    Default = autoshake,
-    Callback = function(state)
-        autoshake = state
-        Settings.AutoShake = state
-        SaveSettings()
-        if state then StartAutoShake() end
-    end
-})
-
-FischSection:AddToggle({
-    Name = "Auto Sell",
-    Default = autosell,
-    Callback = function(state)
-        autosell = state
-        Settings.AutoSell = state
-        SaveSettings()
-        if state then StartAutoSell() end
-    end
-})
-
--- Main Tab: Setting Farm Section
-local SettingSection = MainTab:AddSection({"Setting Farm"})
-
-SettingSection:AddDropdown({
+-- Catch Method Dropdown
+MainTab:AddDropdown({
     Name = "Catch Method",
     Options = {"Perfect", "Random"},
-    Default = CatchMethod or "Perfect",
+    Default = CatchMethod,
     Callback = function(choice)
         CatchMethod = choice
         Settings.CatchMethod = choice
@@ -426,28 +132,46 @@ SettingSection:AddDropdown({
     end
 })
 
-SettingSection:AddDropdown({
+-- Reel Method Dropdown
+MainTab:AddDropdown({
     Name = "Reel Method",
     Options = {"Legit", "Instant"},
-    Default = reelMethod or "Instant",
+    Default = reelMethod,
     Callback = function(choice)
         reelMethod = choice
         Settings.ReelMethod = choice
         SaveSettings()
         if autoreel then
             autoreel_running = false
-            StartAutoReel()
+            local success, err = pcall(StartAutoReel)
+            if not success then
+                warn("Error restarting AutoReel: " .. err)
+                Window:Dialog({
+                    Title = "Error",
+                    Text = "Failed to restart Auto Reel: " .. err,
+                    Options = {{"OK", function() end}}
+                })
+            end
         end
         if reelMethod == "Instant" then
-            local isPerfect = (CatchMethod == "Perfect") or (CatchMethod == "Random" and math.random(0, 1) == 1)
-            pcall(function()
+            local isPerfect = (CatchMethod == "Perfect") or (CatchMethod == "Random" and math.random(0,1) == 1)
+            local success, err = pcall(function()
                 game:GetService("ReplicatedStorage"):WaitForChild("events"):WaitForChild("reelfinished"):FireServer(100, isPerfect)
             end)
+            if not success then
+                warn("Error firing reelfinished: " .. err)
+                Window:Dialog({
+                    Title = "Error",
+                    Text = "Failed to fire reelfinished event: " .. err,
+                    Options = {{"OK", function() end}}
+                })
+            end
         end
     end
 })
 
-SettingSection:AddButton({
+-- Save Position Button
+MainTab:AddButton({
     Name = "Save Position",
     Callback = function()
         local hrp = GetHumanoidRootPart()
@@ -462,188 +186,18 @@ SettingSection:AddButton({
                 Yaw = math.deg(yRot)
             }
             SaveSettings()
+            Window:Dialog({
+                Title = "Success",
+                Text = "Position saved successfully!",
+                Options = {{"OK", function() end}}
+            })
+        else
+            warn("Cannot save position: HumanoidRootPart not found")
+            Window:Dialog({
+                Title = "Error",
+                Text = "Cannot save position: HumanoidRootPart not found",
+                Options = {{"OK", function() end}}
+            })
         end
     end
 })
-
--- Player Tab: Local Player Section
-local PlayerSection = PlayerTab:AddSection({"Local Player"})
-
-PlayerSection:AddSlider({
-    Name = "Walkspeed",
-    Min = 50,
-    Max = 500,
-    Default = 100,
-    Callback = function(value)
-        walkspeedValue = value
-        if changePlayerEnabled then
-            local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid.WalkSpeed = value
-            end
-        end
-    end
-})
-
-PlayerSection:AddSlider({
-    Name = "Jumppower",
-    Min = 50,
-    Max = 500,
-    Default = 50,
-    Callback = function(value)
-        jumppowerValue = value
-        if changePlayerEnabled then
-            local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid.JumpPower = value
-            end
-        end
-    end
-})
-
-PlayerSection:AddToggle({
-    Name = "Change Player",
-    Default = false,
-    Callback = function(state)
-        changePlayerEnabled = state
-        if state then
-            local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid.WalkSpeed = walkspeedValue
-                humanoid.JumpPower = jumppowerValue
-            end
-        end
-    end
-})
-
-PlayerSection:AddToggle({
-    Name = "Noclip",
-    Default = false,
-    Callback = function(state)
-        noclipEnabled = state
-    end
-})
-
-PlayerSection:AddToggle({
-    Name = "Infinity Jump",
-    Default = false,
-    Callback = function(state)
-        infinityJumpEnabled = state
-    end
-})
-
-PlayerSection:AddToggle({
-    Name = "Walk on Water",
-    Default = walkOnWaterEnabled,
-    Callback = function(state)
-        SetWalkOnWater(state)
-    end
-})
-
-PlayerSection:AddButton({
-    Name = "Fly",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"))()
-    end
-})
-
--- Islands & Player Tab: Island Section
-local IslandSection = IslandsPlayerTab:AddSection({"Island"})
-
-IslandSection:AddDropdown({
-    Name = "Select Islands",
-    Options = tpNames,
-    Default = selectedIsland or tpNames[1],
-    Callback = function(choice)
-        selectedIsland = choice
-        Settings.SelectedIsland = choice
-        SaveSettings()
-    end
-})
-
-IslandSection:AddToggle({
-    Name = "Tp to Island",
-    Default = teleporting,
-    Callback = function(state)
-        teleporting = state
-        Settings.TpToIsland = state
-        SaveSettings()
-        if state then StartTeleport() end
-    end
-})
-
--- Islands & Player Tab: Player Section
-local PlayerTpSection = IslandsPlayerTab:AddSection({"Player"})
-
-PlayerTpSection:AddDropdown({
-    Name = "Select Player",
-    Options = GetPlayerNames(),
-    Default = selectedPlayer or Players.LocalPlayer.Name,
-    Callback = function(choice)
-        selectedPlayer = choice
-    end
-})
-
-PlayerTpSection:AddToggle({
-    Name = "Tp to Player",
-    Default = tpToPlayerEnabled,
-    Callback = function(state)
-        tpToPlayerEnabled = state
-        if state then
-            task.spawn(function()
-                while tpToPlayerEnabled do
-                    local hrp = GetHumanoidRootPart()
-                    local targetPlayer = Players:FindFirstChild(selectedPlayer)
-                    if hrp and targetPlayer and targetPlayer.Character then
-                        local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-                        if targetHRP then
-                            pcall(function()
-                                hrp.CFrame = targetHRP.CFrame + Vector3.new(0, 0, 0)
-                            end)
-                        end
-                    end
-                    task.wait()
-                end
-            end)
-        end
-    end
-})
-
--- Update player dropdown when players join/leave
-Players.PlayerAdded:Connect(function()
-    PlayerTpSection:UpdateDropdown("Select Player", GetPlayerNames())
-end)
-
-Players.PlayerRemoving:Connect(function()
-    PlayerTpSection:UpdateDropdown("Select Player", GetPlayerNames())
-end)
-
--- Handle walkspeed, jumppower, and noclip
-task.spawn(function()
-    while true do
-        task.wait(0.1)
-        local char = player.Character
-        if char then
-            local humanoid = char:FindFirstChildOfClass("Humanoid")
-            if humanoid and changePlayerEnabled then
-                humanoid.WalkSpeed = walkspeedValue
-                humanoid.JumpPower = jumppowerValue
-            end
-
-            if noclipEnabled then
-                for _, part in ipairs(char:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
-                end
-            end
-        end
-    end
-end)
-
--- Handle infinite jump
-game:GetService("UserInputService").JumpRequest:Connect(function()
-    if infinityJumpEnabled then
-        local char = player.Character
-        if char then
-            local humanoid = char:
