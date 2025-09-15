@@ -45,7 +45,7 @@ end
 Window = result
 
 -- Check and set minimize button image
-local newImageId = "rbxassetid://137819129207311"
+local newImageId = "rbxassetid://128748965171838"
 local fallbackImageId = "rbxassetid://139438145143663"
 local imageId = newImageId
 success, result = pcall(function()
