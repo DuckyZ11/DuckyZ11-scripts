@@ -29,7 +29,7 @@ local Window
 success, result = pcall(function()
     return redzlib:MakeWindow({
         Title = "Fisch Auto Reel",
-        SubTitle = "Legit & Normal Mode",
+        SubTitle = "Legit, Normal & Instant Mode",
         SaveFolder = "FischSettings"
     })
 end)
@@ -124,6 +124,7 @@ local SETTINGS_FILE = "Fischsv.json"
 local Settings = {
     AutoReel = false,
     NormalMode = false,
+    InstantReel = false,
     MissDuration = "1-3s",
     Smoothness = "Medium",
     PauseDuration = "1.5s"
@@ -144,11 +145,13 @@ end
 -- Variables
 local autoreel = Settings.AutoReel
 local normalmode = Settings.NormalMode
+local instantreel = Settings.InstantReel
 local missDuration = Settings.MissDuration
 local smoothness = Settings.Smoothness
 local pauseDuration = Settings.PauseDuration
 local autoreel_running = false
 local normalmode_running = false
+local instantreel_running = false
 
 -- Save settings function
 local function SaveSettings()
@@ -201,7 +204,7 @@ end
 
 -- Auto Reel (Legit mode, perfect tracking, fixed t=0.15)
 local function StartAutoReel()
-    if autoreel_running or normalmode_running then return end
+    if autoreel_running or normalmode_running or instantreel_running then return end
     autoreel_running = true
     task.defer(function()
         while autoreel do
@@ -281,7 +284,7 @@ end
 
 -- Auto Reel Normal (mimics human with pauses)
 local function StartAutoReelNormal()
-    if normalmode_running or autoreel_running then return end
+    if normalmode_running or autoreel_running or instantreel_running then return end
     normalmode_running = true
     task.defer(function()
         while normalmode do
@@ -380,6 +383,60 @@ local function StartAutoReelNormal()
     end)
 end
 
+-- Instant Reel (Risk mode, instant completion)
+local function StartInstantReel()
+    if instantreel_running or autoreel_running or normalmode_running then return end
+    instantreel_running = true
+    task.defer(function()
+        while instantreel do
+            local gui = player:FindFirstChild("PlayerGui")
+            local reel = gui and gui:FindFirstChild("reel")
+            while instantreel and gui and not reel do
+                reel = gui:FindFirstChild("reel")
+                task.wait(0.1)
+            end
+            if reel then
+                local char = player.Character
+                if char then
+                    for _, tool in ipairs(char:GetChildren()) do
+                        if tool:IsA("Tool") and tool:FindFirstChild("events") and tool.events:FindFirstChild("reset") then
+                            local resetEvent = tool.events.reset
+                            while instantreel and reel and reel.Parent and tool.Parent == char do
+                                local success, err = pcall(function()
+                                    resetEvent:FireServer()
+                                    local args = { [1] = 100, [2] = true }
+                                    ReplicatedStorage:WaitForChild("events"):WaitForChild("reelfinished"):FireServer(unpack(args))
+                                end)
+                                if not success then
+                                    warn("Error in InstantReel: " .. err)
+                                    Window:Dialog({
+                                        Title = "Error",
+                                        Text = "Instant Reel failed: " .. err,
+                                        Options = {{"OK", function() end}}
+                                    })
+                                    instantreel = false
+                                    Settings.InstantReel = false
+                                    SaveSettings()
+                                    return
+                                end
+                                task.wait(0.1)
+                            end
+                        end
+                    end
+                end
+            else
+                Window:Dialog({
+                    Title = "Warning",
+                    Text = "Reel UI not found! Start fishing first.",
+                    Options = {{"OK", function() end}}
+                })
+            end
+            task.wait(0.1)
+        end
+        instantreel_running = false
+    end)
+end
+
 -- Auto Reel Toggle (Legit mode)
 success, result = pcall(function()
     MainTab:AddToggle({
@@ -389,10 +446,17 @@ success, result = pcall(function()
         Callback = function(state)
             autoreel = state
             Settings.AutoReel = state
-            if state and normalmode then
-                normalmode = false
-                Settings.NormalMode = false
-                normalmode_running = false
+            if state then
+                if normalmode then
+                    normalmode = false
+                    Settings.NormalMode = false
+                    normalmode_running = false
+                end
+                if instantreel then
+                    instantreel = false
+                    Settings.InstantReel = false
+                    instantreel_running = false
+                end
             end
             SaveSettings()
             if state then
@@ -406,92 +470,4 @@ success, result = pcall(function()
                     })
                     autoreel = false
                     Settings.AutoReel = false
-                    SaveSettings()
-                end
-            else
-                autoreel_running = false
-                Window:Dialog({
-                    Title = "Auto Reel",
-                    Text = "Auto Reel (Legit) stopped",
-                    Options = {{"OK", function() end}}
-                })
-            end
-        end
-    })
-end)
-if not success then
-    warn("Failed to add Legit Toggle: " .. result)
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Error",
-        Text = "Failed to add Legit Toggle: " .. result,
-        Duration = 5
-    })
-end
-
--- Auto Reel Normal Toggle
-success, result = pcall(function()
-    MainTab:AddToggle({
-        Name = "Auto Reel (Normal)",
-        Flag = "NormalMode",
-        Default = normalmode,
-        Callback = function(state)
-            normalmode = state
-            Settings.NormalMode = state
-            if state and autoreel then
-                autoreel = false
-                Settings.AutoReel = false
-                autoreel_running = false
-            end
-            SaveSettings()
-            if state then
-                local success, err = pcall(StartAutoReelNormal)
-                if not success then
-                    warn("Error in StartAutoReelNormal: " .. err)
-                    Window:Dialog({
-                        Title = "Error",
-                        Text = "Failed to start Auto Reel Normal: " .. err,
-                        Options = {{"OK", function() end}}
-                    })
-                    normalmode = false
-                    Settings.NormalMode = false
-                    SaveSettings()
-                else
-                    Window:Dialog({
-                        Title = "Auto Reel",
-                        Text = "Auto Reel (Normal) started",
-                        Options = {{"OK", function() end}}
-                    })
-                end
-            else
-                normalmode_running = false
-                Window:Dialog({
-                    Title = "Auto Reel",
-                    Text = "Auto Reel (Normal) stopped",
-                    Options = {{"OK", function() end}}
-                })
-            end
-        end
-    })
-end)
-if not success then
-    warn("Failed to add Normal Toggle: " .. result)
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Error",
-        Text = "Failed to add Normal Toggle: " .. result,
-        Duration = 5
-    })
-end
-
--- Smoothness Dropdown (Normal Mode only)
-success, result = pcall(function()
-    MainTab:AddDropdown({
-        Name = "Smoothness (Normal Mode)",
-        Options = {"Slow", "Medium", "Fast"},
-        Default = Settings.Smoothness or "Medium",
-        Callback = function(choice)
-            smoothness = choice
-            Settings.Smoothness = choice
-            SaveSettings()
-            if normalmode then
-                normalmode_running = false
-                local succe
+                    SaveSett
