@@ -23,7 +23,7 @@ Window:AddMinimizeButton({
 })
 
 -- Create single tab
-local MainTab = Window:MakeTab({"Main", "rbxassetid://7733960981"})
+local MainTab = Window:MakeTab({"Main", "rbxassetid://81648242960763"})
 Window:SelectTab(MainTab)
 
 -- Add section
