@@ -304,15 +304,3 @@ MainTab:AddDropdown({
         end
     end
 })
-
--- Instant Reel
-MainTab:AddButton({
-Name = "Instant Reel"
-Callback = function()
-        local args = {
-            [1] = 100,
-            [2] = false
-        }
-        game:GetService("ReplicatedStorage").events.reelfinished:FireServer(unpack(args))
-    end
-})
