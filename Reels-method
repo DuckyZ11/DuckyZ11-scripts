@@ -11,7 +11,7 @@ local Window = redzlib:MakeWindow({
 })
 
 -- Check if the new image asset loads
-local newImageId = "rbxassetid://81648242960763"
+local newImageId = "rbxassetid://128748965171838"
 local fallbackImageId = "rbxassetid://139438145143663"
 local imageId = newImageId
 local success, _ = pcall(function()
@@ -21,7 +21,7 @@ if not success then
     imageId = fallbackImageId
     Window:Dialog({
         Title = "Warning",
-        Text = "Failed to load image rbxassetid://81648242960763. Using fallback image.",
+        Text = "Failed to load image rbxassetid://128748965171838. Using fallback image.",
         Options = {{"OK", function() end}}
     })
 end
@@ -54,7 +54,6 @@ local SETTINGS_FILE = "Fischsv.json"
 local Settings = {
     AutoReel = false,
     NormalMode = false,
-    MissDuration = "1-3s",
     Smoothness = "Medium"
 }
 
@@ -73,7 +72,6 @@ end
 -- Variables
 local autoreel = Settings.AutoReel
 local normalmode = Settings.NormalMode
-local missDuration = Settings.MissDuration
 local smoothness = Settings.Smoothness
 local autoreel_running = false
 local normalmode_running = false
@@ -197,7 +195,7 @@ local function StartAutoReel()
     end)
 end
 
--- Auto Reel Normal (mimics human with occasional misses)
+-- Auto Reel Normal (continuous tracking, no pauses)
 local function StartAutoReelNormal()
     if normalmode_running or autoreel_running then return end
     normalmode_running = true
@@ -224,32 +222,13 @@ local function StartAutoReelNormal()
                                     if fish and playerbar then
                                         local currentX = playerbar.Position.X.Scale
                                         local currentY = playerbar.Position.Y.Scale
-                                        local tracking = true
-                                        local missTime = 0
-                                        local missDurationSec = missDuration == "1-3s" and math.random(1, 3) or
-                                                               missDuration == "1-6s" and math.random(1, 6) or
-                                                               math.random(1, 8)
-                                        local missStart = tick()
                                         local lerpT = getSmoothnessValue()
                                         while normalmode and reel and reel.Parent and fish and playerbar do
-                                            if tracking then
-                                                local targetX = fish.Position.X.Scale + math.random(-0.01, 0.01)
-                                                local targetY = fish.Position.Y.Scale + math.random(-0.01, 0.01)
-                                                currentX = lerp(currentX, targetX, lerpT)
-                                                currentY = lerp(currentY, targetY, lerpT)
-                                                playerbar.Position = UDim2.new(currentX, 0, currentY, 0)
-                                            end
-                                            if tick() - missStart >= missDurationSec then
-                                                tracking = not tracking
-                                                missTime = tick()
-                                                missDurationSec = missDuration == "1-3s" and math.random(1, 3) or
-                                                                 missDuration == "1-6s" and math.random(1, 6) or
-                                                                 math.random(1, 8)
-                                            end
-                                            if not tracking and tick() - missTime >= 0.5 then
-                                                tracking = true
-                                                missStart = tick()
-                                            end
+                                            local targetX = fish.Position.X.Scale + math.random(-0.01, 0.01)
+                                            local targetY = fish.Position.Y.Scale + math.random(-0.01, 0.01)
+                                            currentX = lerp(currentX, targetX, lerpT)
+                                            currentY = lerp(currentY, targetY, lerpT)
+                                            playerbar.Position = UDim2.new(currentX, 0, currentY, 0)
                                             task.wait(0.01)
                                             bar = reel:FindFirstChild("bar")
                                             fish = bar and bar:FindFirstChild("fish")
@@ -407,33 +386,6 @@ MainTab:AddDropdown({
                 autoreel = false
                 normalmode = false
                 Settings.AutoReel = false
-                Settings.NormalMode = false
-                SaveSettings()
-            end
-        end
-    end
-})
-
--- Miss Duration Dropdown
-MainTab:AddDropdown({
-    Name = "Miss Duration (Normal Mode)",
-    Options = {"1-3s", "1-6s", "1-8s"},
-    Default = Settings.MissDuration or "1-3s",
-    Callback = function(choice)
-        missDuration = choice
-        Settings.MissDuration = choice
-        SaveSettings()
-        if normalmode then
-            normalmode_running = false
-            local success, err = pcall(StartAutoReelNormal)
-            if not success then
-                warn("Error restarting AutoReelNormal: " .. err)
-                Window:Dialog({
-                    Title = "Error",
-                    Text = "Failed to restart Auto Reel Normal: " .. err,
-                    Options = {{"OK", function() end}}
-                })
-                normalmode = false
                 Settings.NormalMode = false
                 SaveSettings()
             end
