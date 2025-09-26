@@ -114,7 +114,7 @@ local function getSmoothnessValue()
     end
 end
 
--- Auto Reel (Legit mode, perfect tracking)
+-- Auto Reel (Legit mode, continuous tracking)
 local function StartAutoReel()
     if autoreel_running or normalmode_running then return end
     autoreel_running = true
@@ -130,11 +130,9 @@ local function StartAutoReel()
                 local char = player.Character
                 if char then
                     for _, tool in ipairs(char:GetChildren()) do
-                        if tool:IsA("Tool") and tool:FindFirstChild("events") and tool.events:FindFirstChild("reset") then
-                            local resetEvent = tool.events.reset
+                        if tool:IsA("Tool") and tool:FindFirstChild("events") then
                             while autoreel and reel and reel.Parent and tool.Parent == char do
                                 local success, err = pcall(function()
-                                    resetEvent:FireServer()
                                     local bar = reel:FindFirstChild("bar")
                                     local fish = bar and bar:FindFirstChild("fish")
                                     local playerbar = bar and bar:FindFirstChild("playerbar")
@@ -142,7 +140,7 @@ local function StartAutoReel()
                                         local currentX = playerbar.Position.X.Scale
                                         local currentY = playerbar.Position.Y.Scale
                                         local lerpT = getSmoothnessValue()
-                                        while autoreel and reel and reel.Parent and fish and playerbar do
+                                        while autoreel and reel and reel.Parent and fish and playerbar and tool.Parent == char do
                                             local targetX = fish.Position.X.Scale + math.random(-0.005, 0.005)
                                             local targetY = fish.Position.Y.Scale + math.random(-0.005, 0.005)
                                             currentX = lerp(currentX, targetX, lerpT)
@@ -152,10 +150,6 @@ local function StartAutoReel()
                                             bar = reel:FindFirstChild("bar")
                                             fish = bar and bar:FindFirstChild("fish")
                                             playerbar = bar and bar:FindFirstChild("playerbar")
-                                        end
-                                        if autoreel and not reel.Parent then
-                                            local isPerfect = true
-                                            ReplicatedStorage:WaitForChild("events"):WaitForChild("reelfinished"):FireServer(80, isPerfect)
                                         end
                                     else
                                         Window:Dialog({
@@ -195,7 +189,7 @@ local function StartAutoReel()
     end)
 end
 
--- Auto Reel Normal (continuous tracking, no pauses)
+-- Auto Reel Normal (continuous tracking)
 local function StartAutoReelNormal()
     if normalmode_running or autoreel_running then return end
     normalmode_running = true
@@ -211,11 +205,9 @@ local function StartAutoReelNormal()
                 local char = player.Character
                 if char then
                     for _, tool in ipairs(char:GetChildren()) do
-                        if tool:IsA("Tool") and tool:FindFirstChild("events") and tool.events:FindFirstChild("reset") then
-                            local resetEvent = tool.events.reset
+                        if tool:IsA("Tool") and tool:FindFirstChild("events") then
                             while normalmode and reel and reel.Parent and tool.Parent == char do
                                 local success, err = pcall(function()
-                                    resetEvent:FireServer()
                                     local bar = reel:FindFirstChild("bar")
                                     local fish = bar and bar:FindFirstChild("fish")
                                     local playerbar = bar and bar:FindFirstChild("playerbar")
@@ -223,7 +215,7 @@ local function StartAutoReelNormal()
                                         local currentX = playerbar.Position.X.Scale
                                         local currentY = playerbar.Position.Y.Scale
                                         local lerpT = getSmoothnessValue()
-                                        while normalmode and reel and reel.Parent and fish and playerbar do
+                                        while normalmode and reel and reel.Parent and fish and playerbar and tool.Parent == char do
                                             local targetX = fish.Position.X.Scale + math.random(-0.01, 0.01)
                                             local targetY = fish.Position.Y.Scale + math.random(-0.01, 0.01)
                                             currentX = lerp(currentX, targetX, lerpT)
@@ -233,10 +225,6 @@ local function StartAutoReelNormal()
                                             bar = reel:FindFirstChild("bar")
                                             fish = bar and bar:FindFirstChild("fish")
                                             playerbar = bar and bar:FindFirstChild("playerbar")
-                                        end
-                                        if normalmode and not reel.Parent then
-                                            local isPerfect = math.random(0, 1) == 1
-                                            ReplicatedStorage:WaitForChild("events"):WaitForChild("reelfinished"):FireServer(70, isPerfect)
                                         end
                                     else
                                         Window:Dialog({
