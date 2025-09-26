@@ -10,12 +10,26 @@ local Window = redzlib:MakeWindow({
     SaveFolder = "FischSettings"
 })
 
--- Add minimize button (square with rounded corners, text "hide")
+-- Check if the new image asset loads
+local newImageId = "rbxassetid://81648242960763"
+local fallbackImageId = "rbxassetid://139438145143663"
+local imageId = newImageId
+local success, _ = pcall(function()
+    game:GetService("ContentProvider"):PreloadAsync({newImageId})
+end)
+if not success then
+    imageId = fallbackImageId
+    Window:Dialog({
+        Title = "Warning",
+        Text = "Failed to load image rbxassetid://81648242960763. Using fallback image.",
+        Options = {{"OK", function() end}}
+    })
+end
+
+-- Add minimize button (square with rounded corners)
 Window:AddMinimizeButton({
     Button = { 
-        Text = "hide",
-        TextColor3 = Color3.fromRGB(255, 255, 255),
-        BackgroundColor3 = Color3.fromRGB(30, 30, 30),
+        Image = imageId, 
         BackgroundTransparency = 0,
         Size = UDim2.new(0, 44, 0, 44)
     },
@@ -23,7 +37,7 @@ Window:AddMinimizeButton({
 })
 
 -- Create single tab
-local MainTab = Window:MakeTab({"Main", "rbxassetid://81648242960763"})
+local MainTab = Window:MakeTab({"Main", "rbxassetid://7733960981"})
 Window:SelectTab(MainTab)
 
 -- Add section
@@ -91,7 +105,7 @@ local function lerp(a, b, t)
     return a + (b - a) * t
 end
 
--- Get smoothness value for Normal mode
+-- Get smoothness value
 local function getSmoothnessValue()
     if smoothness == "Slow" then
         return 0.1
@@ -102,7 +116,7 @@ local function getSmoothnessValue()
     end
 end
 
--- Auto Reel (Legit mode, perfect tracking, fixed t=0.15)
+-- Auto Reel (Legit mode, perfect tracking)
 local function StartAutoReel()
     if autoreel_running or normalmode_running then return end
     autoreel_running = true
@@ -129,11 +143,12 @@ local function StartAutoReel()
                                     if fish and playerbar then
                                         local currentX = playerbar.Position.X.Scale
                                         local currentY = playerbar.Position.Y.Scale
+                                        local lerpT = getSmoothnessValue()
                                         while autoreel and reel and reel.Parent and fish and playerbar do
                                             local targetX = fish.Position.X.Scale + math.random(-0.005, 0.005)
                                             local targetY = fish.Position.Y.Scale + math.random(-0.005, 0.005)
-                                            currentX = lerp(currentX, targetX, 0.15) -- Fixed t=0.15
-                                            currentY = lerp(currentY, targetY, 0.15)
+                                            currentX = lerp(currentX, targetX, lerpT)
+                                            currentY = lerp(currentY, targetY, lerpT)
                                             playerbar.Position = UDim2.new(currentX, 0, currentY, 0)
                                             task.wait(0.01)
                                             bar = reel:FindFirstChild("bar")
@@ -364,26 +379,34 @@ MainTab:AddToggle({
     end
 })
 
--- Smoothness Dropdown (Normal Mode only)
+-- Smoothness Dropdown
 MainTab:AddDropdown({
-    Name = "Smoothness (Normal Mode)",
+    Name = "Smoothness",
     Options = {"Slow", "Medium", "Fast"},
     Default = Settings.Smoothness or "Medium",
     Callback = function(choice)
         smoothness = choice
         Settings.Smoothness = choice
         SaveSettings()
-        if normalmode then
+        if autoreel or normalmode then
+            autoreel_running = false
             normalmode_running = false
-            local success, err = pcall(StartAutoReelNormal)
+            local success, err
+            if autoreel then
+                success, err = pcall(StartAutoReel)
+            elseif normalmode then
+                success, err = pcall(StartAutoReelNormal)
+            end
             if not success then
-                warn("Error restarting AutoReelNormal: " .. err)
+                warn("Error restarting AutoReel: " .. err)
                 Window:Dialog({
                     Title = "Error",
-                    Text = "Failed to restart Auto Reel Normal: " .. err,
+                    Text = "Failed to restart Auto Reel: " .. err,
                     Options = {{"OK", function() end}}
                 })
+                autoreel = false
                 normalmode = false
+                Settings.AutoReel = false
                 Settings.NormalMode = false
                 SaveSettings()
             end
@@ -391,7 +414,7 @@ MainTab:AddDropdown({
     end
 })
 
--- Miss Duration Dropdown (Normal Mode only)
+-- Miss Duration Dropdown
 MainTab:AddDropdown({
     Name = "Miss Duration (Normal Mode)",
     Options = {"1-3s", "1-6s", "1-8s"},
