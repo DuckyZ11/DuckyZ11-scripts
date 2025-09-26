@@ -44,7 +44,6 @@ Window:SelectTab(MainTab)
 local Section = MainTab:AddSection({"Fisch Auto Reel"})
 
 -- Initialize services
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
@@ -130,7 +129,7 @@ local function StartAutoReel()
                 local char = player.Character
                 if char then
                     for _, tool in ipairs(char:GetChildren()) do
-                        if tool:IsA("Tool") and tool:FindFirstChild("events") then
+                        if tool:IsA("Tool") then
                             while autoreel and reel and reel.Parent and tool.Parent == char do
                                 local success, err = pcall(function()
                                     local bar = reel:FindFirstChild("bar")
@@ -205,7 +204,7 @@ local function StartAutoReelNormal()
                 local char = player.Character
                 if char then
                     for _, tool in ipairs(char:GetChildren()) do
-                        if tool:IsA("Tool") and tool:FindFirstChild("events") then
+                        if tool:IsA("Tool") then
                             while normalmode and reel and reel.Parent and tool.Parent == char do
                                 local success, err = pcall(function()
                                     local bar = reel:FindFirstChild("bar")
