@@ -19,11 +19,6 @@ local success, _ = pcall(function()
 end)
 if not success then
     imageId = fallbackImageId
-    Window:Dialog({
-        Title = "Warning",
-        Text = "Failed to load image rbxassetid://128748965171838. Using fallback image.",
-        Options = {{"OK", function() end}}
-    })
 end
 
 -- Add minimize button (square with rounded corners)
@@ -83,11 +78,6 @@ local function SaveSettings()
             dataToSave[k] = v
         end
         writefile(SETTINGS_FILE, HttpService:JSONEncode(dataToSave))
-        Window:Dialog({
-            Title = "Settings",
-            Text = "Settings saved successfully!",
-            Options = {{"OK", function() end}}
-        })
     end)
 end
 
@@ -102,14 +92,14 @@ local function lerp(a, b, t)
     return a + (b - a) * t
 end
 
--- Get smoothness value (increased for faster tracking)
+-- Get smoothness value (faster tracking)
 local function getSmoothnessValue()
     if smoothness == "Slow" then
-        return 0.15 -- Was 0.1
+        return 0.15
     elseif smoothness == "Fast" then
-        return 0.25 -- Was 0.2
+        return 0.25
     else -- Medium
-        return 0.2 -- Was 0.15
+        return 0.2
     end
 end
 
@@ -150,21 +140,10 @@ local function StartAutoReel()
                                             fish = bar and bar:FindFirstChild("fish")
                                             playerbar = bar and bar:FindFirstChild("playerbar")
                                         end
-                                    else
-                                        Window:Dialog({
-                                            Title = "Warning",
-                                            Text = "Reel UI elements not found! Ensure you're fishing.",
-                                            Options = {{"OK", function() end}}
-                                        })
                                     end
                                 end)
                                 if not success then
                                     warn("Error in AutoReel: " .. err)
-                                    Window:Dialog({
-                                        Title = "Error",
-                                        Text = "Auto Reel failed: " .. err,
-                                        Options = {{"OK", function() end}}
-                                    })
                                     autoreel = false
                                     Settings.AutoReel = false
                                     SaveSettings()
@@ -175,12 +154,6 @@ local function StartAutoReel()
                         end
                     end
                 end
-            else
-                Window:Dialog({
-                    Title = "Warning",
-                    Text = "Reel UI not found! Start fishing first.",
-                    Options = {{"OK", function() end}}
-                })
             end
             task.wait(0.1)
         end
@@ -225,21 +198,10 @@ local function StartAutoReelNormal()
                                             fish = bar and bar:FindFirstChild("fish")
                                             playerbar = bar and bar:FindFirstChild("playerbar")
                                         end
-                                    else
-                                        Window:Dialog({
-                                            Title = "Warning",
-                                            Text = "Reel UI elements not found! Ensure you're fishing.",
-                                            Options = {{"OK", function() end}}
-                                        })
                                     end
                                 end)
                                 if not success then
                                     warn("Error in AutoReelNormal: " .. err)
-                                    Window:Dialog({
-                                        Title = "Error",
-                                        Text = "Auto Reel Normal failed: " .. err,
-                                        Options = {{"OK", function() end}}
-                                    })
                                     normalmode = false
                                     Settings.NormalMode = false
                                     SaveSettings()
@@ -250,12 +212,6 @@ local function StartAutoReelNormal()
                         end
                     end
                 end
-            else
-                Window:Dialog({
-                    Title = "Warning",
-                    Text = "Reel UI not found! Start fishing first.",
-                    Options = {{"OK", function() end}}
-                })
             end
             task.wait(0.1)
         end
@@ -281,11 +237,6 @@ MainTab:AddToggle({
             local success, err = pcall(StartAutoReel)
             if not success then
                 warn("Error in StartAutoReel: " .. err)
-                Window:Dialog({
-                    Title = "Error",
-                    Text = "Failed to start Auto Reel: " .. err,
-                    Options = {{"OK", function() end}}
-                })
                 autoreel = false
                 Settings.AutoReel = false
                 SaveSettings()
@@ -314,11 +265,6 @@ MainTab:AddToggle({
             local success, err = pcall(StartAutoReelNormal)
             if not success then
                 warn("Error in StartAutoReelNormal: " .. err)
-                Window:Dialog({
-                    Title = "Error",
-                    Text = "Failed to start Auto Reel Normal: " .. err,
-                    Options = {{"OK", function() end}}
-                })
                 normalmode = false
                 Settings.NormalMode = false
                 SaveSettings()
@@ -349,11 +295,6 @@ MainTab:AddDropdown({
             end
             if not success then
                 warn("Error restarting AutoReel: " .. err)
-                Window:Dialog({
-                    Title = "Error",
-                    Text = "Failed to restart Auto Reel: " .. err,
-                    Options = {{"OK", function() end}}
-                })
                 autoreel = false
                 normalmode = false
                 Settings.AutoReel = false
