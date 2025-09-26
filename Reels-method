@@ -97,19 +97,19 @@ local function GetHumanoidRootPart()
     return char:WaitForChild("HumanoidRootPart")
 end
 
--- Linear interpolation for ultra-smooth movement
+-- Linear interpolation for smooth movement
 local function lerp(a, b, t)
     return a + (b - a) * t
 end
 
--- Get smoothness value
+-- Get smoothness value (increased for faster tracking)
 local function getSmoothnessValue()
     if smoothness == "Slow" then
-        return 0.1
+        return 0.15 -- Was 0.1
     elseif smoothness == "Fast" then
-        return 0.2
+        return 0.25 -- Was 0.2
     else -- Medium
-        return 0.15
+        return 0.2 -- Was 0.15
     end
 end
 
@@ -292,11 +292,6 @@ MainTab:AddToggle({
             end
         else
             autoreel_running = false
-            Window:Dialog({
-                Title = "Auto Reel",
-                Text = "Auto Reel (Legit) stopped",
-                Options = {{"OK", function() end}}
-            })
         end
     end
 })
@@ -327,20 +322,9 @@ MainTab:AddToggle({
                 normalmode = false
                 Settings.NormalMode = false
                 SaveSettings()
-            else
-                Window:Dialog({
-                    Title = "Auto Reel",
-                    Text = "Auto Reel (Normal) started",
-                    Options = {{"OK", function() end}}
-                })
             end
         else
             normalmode_running = false
-            Window:Dialog({
-                Title = "Auto Reel",
-                Text = "Auto Reel (Normal) stopped",
-                Options = {{"OK", function() end}}
-            })
         end
     end
 })
