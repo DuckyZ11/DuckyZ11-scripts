@@ -1,7 +1,10 @@
---[[
-    WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
-]]
-local redzlib = loadstring(game:HttpGet("https://gist.githubusercontent.com/MjContiga1/54c07e52fc2aab8873b68d91a71d11c6/raw/fb4f1d6a7c89465f3b39bc00eeff09af24b88f20/Redz%2520hub.lua"))()
+local success, redzlib = pcall(function()
+    return loadstring(game:HttpGet("https://gist.githubusercontent.com/MjContiga1/54c07e52fc2aab8873b68d91a71d11c6/raw/fb4f1d6a7c89465f3b39bc00eeff09af24b88f20/Redz%2520hub.lua"))()
+end)
+if not success then
+    warn("Failed to load redzlib: " .. tostring(redzlib))
+    return
+end
 
 -- Create window
 local Window = redzlib:MakeWindow({
@@ -11,13 +14,14 @@ local Window = redzlib:MakeWindow({
 })
 
 -- Check if the new image asset loads
-local newImageId = "rbxassetid://78054336395225"
+local newImageId = "rbxassetid://128748965171838" -- Reverted to working ID
 local fallbackImageId = "rbxassetid://139438145143663"
 local imageId = newImageId
-local success, _ = pcall(function()
+local success, err = pcall(function()
     game:GetService("ContentProvider"):PreloadAsync({newImageId})
 end)
 if not success then
+    warn("Failed to load image " .. newImageId .. ": " .. tostring(err))
     imageId = fallbackImageId
 end
 
@@ -140,6 +144,8 @@ local function StartAutoReel()
                                             fish = bar and bar:FindFirstChild("fish")
                                             playerbar = bar and bar:FindFirstChild("playerbar")
                                         end
+                                    else
+                                        warn("Reel UI elements not found")
                                     end
                                 end)
                                 if not success then
@@ -154,6 +160,8 @@ local function StartAutoReel()
                         end
                     end
                 end
+            else
+                warn("Reel UI not found")
             end
             task.wait(0.1)
         end
@@ -198,6 +206,8 @@ local function StartAutoReelNormal()
                                             fish = bar and bar:FindFirstChild("fish")
                                             playerbar = bar and bar:FindFirstChild("playerbar")
                                         end
+                                    else
+                                        warn("Reel UI elements not found")
                                     end
                                 end)
                                 if not success then
@@ -212,6 +222,8 @@ local function StartAutoReelNormal()
                         end
                     end
                 end
+            else
+                warn("Reel UI not found")
             end
             task.wait(0.1)
         end
@@ -302,5 +314,18 @@ MainTab:AddDropdown({
                 SaveSettings()
             end
         end
+    end
+})
+
+-- Instant Reel Button
+MainTab:AddButton({
+    Name = "Instant Reel",
+    Callback = function()
+        local args = {
+            [1] = 100,
+            [2] = false
+        }
+        print("Firing reelfinished with args:", args[1], args[2])
+        game:GetService("ReplicatedStorage").events.reelfinished:FireServer(unpack(args))
     end
 })
