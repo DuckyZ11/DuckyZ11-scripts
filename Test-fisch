@@ -1,0 +1,388 @@
+local success, redzlib = pcall(function()
+    return loadstring(game:HttpGet("https://gist.githubusercontent.com/MjContiga1/54c07e52fc2aab8873b68d91a71d11c6/raw/fb4f1d6a7c89465f3b39bc00eeff09af24b88f20/Redz%2520hub.lua"))()
+end)
+if not success then
+    warn("Failed to load redzlib: " .. tostring(redzlib))
+    return
+end
+
+-- Create window
+local Window = redzlib:MakeWindow({
+    Title = "Fisch Auto Reel",
+    SubTitle = "Legit & Normal Mode",
+    SaveFolder = "FischSettings"
+})
+
+-- Check if the new image asset loads
+local newImageId = "rbxassetid://104942786807592" -- Reverted to working ID
+local fallbackImageId = "rbxassetid://139438145143663"
+local imageId = newImageId
+local success, err = pcall(function()
+    game:GetService("ContentProvider"):PreloadAsync({newImageId})
+end)
+if not success then
+    warn("Failed to load image " .. newImageId .. ": " .. tostring(err))
+    imageId = fallbackImageId
+end
+
+-- Add minimize button (square with rounded corners)
+Window:AddMinimizeButton({
+    Button = { 
+        Image = imageId, 
+        BackgroundTransparency = 0,
+        Size = UDim2.new(0, 44, 0, 44)
+    },
+    Corner = { CornerRadius = UDim.new(0, 8) }
+})
+
+-- Create tabs
+local MainTab = Window:MakeTab({"Main", "rbxassetid://7733960981"})
+local MiscTab = Window:MakeTab({"Misc", "rbxassetid://7734056608"})
+Window:SelectTab(MainTab)
+
+-- Add sections
+local MainSection = MainTab:AddSection({"Fisch Auto Reel"})
+local MiscSection = MiscTab:AddSection({"Miscellaneous"})
+
+-- Initialize services
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local player = Players.LocalPlayer
+
+-- Initialize settings
+local SETTINGS_FILE = "Fischsv.json"
+local Settings = {
+    AutoReel = false,
+    NormalMode = false,
+    Smoothness = "Medium"
+}
+
+-- Load settings from file
+if pcall(function() return readfile(SETTINGS_FILE) end) then
+    local success, data = pcall(function()
+        return HttpService:JSONDecode(readfile(SETTINGS_FILE))
+    end)
+    if success and data then
+        for k, v in pairs(data) do
+            Settings[k] = v
+        end
+    end
+end
+
+-- Variables
+local autoreel = Settings.AutoReel
+local normalmode = Settings.NormalMode
+local smoothness = Settings.Smoothness
+local autoreel_running = false
+local normalmode_running = false
+local lastAppraiseTime = 0 -- For Normal Appraise cooldown
+
+-- Save settings function
+local function SaveSettings()
+    pcall(function()
+        local dataToSave = {}
+        for k, v in pairs(Settings) do
+            dataToSave[k] = v
+        end
+        writefile(SETTINGS_FILE, HttpService:JSONEncode(dataToSave))
+    end)
+end
+
+-- Get HumanoidRootPart
+local function GetHumanoidRootPart()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart")
+end
+
+-- Linear interpolation for smooth movement
+local function lerp(a, b, t)
+    return a + (b - a) * t
+end
+
+-- Get smoothness value (faster tracking)
+local function getSmoothnessValue()
+    if smoothness == "Slow" then
+        return 0.15
+    elseif smoothness == "Fast" then
+        return 0.25
+    else -- Medium
+        return 0.2
+    end
+end
+
+-- Auto Reel (Legit mode, continuous tracking)
+local function StartAutoReel()
+    if autoreel_running or normalmode_running then return end
+    autoreel_running = true
+    task.defer(function()
+        while autoreel do
+            local gui = player:FindFirstChild("PlayerGui")
+            local reel = gui and gui:FindFirstChild("reel")
+            while autoreel and gui and not reel do
+                reel = gui:FindFirstChild("reel")
+                task.wait(0.1)
+            end
+            if reel then
+                local char = player.Character
+                if char then
+                    for _, tool in ipairs(char:GetChildren()) do
+                        if tool:IsA("Tool") then
+                            while autoreel and reel and reel.Parent and tool.Parent == char do
+                                local success, err = pcall(function()
+                                    local bar = reel:FindFirstChild("bar")
+                                    local fish = bar and bar:FindFirstChild("fish")
+                                    local playerbar = bar and bar:FindFirstChild("playerbar")
+                                    if fish and playerbar then
+                                        local currentX = playerbar.Position.X.Scale
+                                        local currentY = playerbar.Position.Y.Scale
+                                        local lerpT = getSmoothnessValue()
+                                        while autoreel and reel and reel.Parent and fish and playerbar and tool.Parent == char do
+                                            local targetX = fish.Position.X.Scale + math.random(-0.005, 0.005)
+                                            local targetY = fish.Position.Y.Scale + math.random(-0.005, 0.005)
+                                            currentX = lerp(currentX, targetX, lerpT)
+                                            currentY = lerp(currentY, targetY, lerpT)
+                                            playerbar.Position = UDim2.new(currentX, 0, currentY, 0)
+                                            task.wait(0.01)
+                                            bar = reel:FindFirstChild("bar")
+                                            fish = bar and bar:FindFirstChild("fish")
+                                            playerbar = bar and bar:FindFirstChild("playerbar")
+                                        end
+                                    else
+                                        warn("Reel UI elements not found")
+                                    end
+                                end)
+                                if not success then
+                                    warn("Error in AutoReel: " .. err)
+                                    autoreel = false
+                                    Settings.AutoReel = false
+                                    SaveSettings()
+                                    return
+                                end
+                                task.wait(0.1)
+                            end
+                        end
+                    end
+                end
+            else
+                warn("Reel UI not found")
+            end
+            task.wait(0.1)
+        end
+        autoreel_running = false
+    end)
+end
+
+-- Auto Reel Normal (continuous tracking)
+local function StartAutoReelNormal()
+    if normalmode_running or autoreel_running then return end
+    normalmode_running = true
+    task.defer(function()
+        while normalmode do
+            local gui = player:FindFirstChild("PlayerGui")
+            local reel = gui and gui:FindFirstChild("reel")
+            while normalmode and gui and not reel do
+                reel = gui:FindFirstChild("reel")
+                task.wait(0.1)
+            end
+            if reel then
+                local char = player.Character
+                if char then
+                    for _, tool in ipairs(char:GetChildren()) do
+                        if tool:IsA("Tool") then
+                            while normalmode and reel and reel.Parent and tool.Parent == char do
+                                local success, err = pcall(function()
+                                    local bar = reel:FindFirstChild("bar")
+                                    local fish = bar and bar:FindFirstChild("fish")
+                                    local playerbar = bar and bar:FindFirstChild("playerbar")
+                                    if fish and playerbar then
+                                        local currentX = playerbar.Position.X.Scale
+                                        local currentY = playerbar.Position.Y.Scale
+                                        local lerpT = getSmoothnessValue()
+                                        while normalmode and reel and reel.Parent and fish and playerbar and tool.Parent == char do
+                                            local targetX = fish.Position.X.Scale + math.random(-0.01, 0.01)
+                                            local targetY = fish.Position.Y.Scale + math.random(-0.01, 0.01)
+                                            currentX = lerp(currentX, targetX, lerpT)
+                                            currentY = lerp(currentY, targetY, lerpT)
+                                            playerbar.Position = UDim2.new(currentX, 0, currentY, 0)
+                                            task.wait(0.01)
+                                            bar = reel:FindFirstChild("bar")
+                                            fish = bar and bar:FindFirstChild("fish")
+                                            playerbar = bar and bar:FindFirstChild("playerbar")
+                                        end
+                                    else
+                                        warn("Reel UI elements not found")
+                                    end
+                                end)
+                                if not success then
+                                    warn("Error in AutoReelNormal: " .. err)
+                                    normalmode = false
+                                    Settings.NormalMode = false
+                                    SaveSettings()
+                                    return
+                                end
+                                task.wait(0.1)
+                            end
+                        end
+                    end
+                end
+            else
+                warn("Reel UI not found")
+            end
+            task.wait(0.1)
+        end
+        normalmode_running = false
+    end)
+end
+
+-- Auto Reel Toggle (Legit mode)
+MainTab:AddToggle({
+    Name = "Auto Reel (Legit)",
+    Flag = "AutoReel",
+    Default = autoreel,
+    Callback = function(state)
+        autoreel = state
+        Settings.AutoReel = state
+        if state and normalmode then
+            normalmode = false
+            Settings.NormalMode = false
+            normalmode_running = false
+        end
+        SaveSettings()
+        if state then
+            local success, err = pcall(StartAutoReel)
+            if not success then
+                warn("Error in StartAutoReel: " .. err)
+                autoreel = false
+                Settings.AutoReel = false
+                SaveSettings()
+            end
+        else
+            autoreel_running = false
+        end
+    end
+})
+
+-- Auto Reel Normal Toggle
+MainTab:AddToggle({
+    Name = "Auto Reel (Normal)",
+    Flag = "NormalMode",
+    Default = normalmode,
+    Callback = function(state)
+        normalmode = state
+        Settings.NormalMode = state
+        if state and autoreel then
+            autoreel = false
+            Settings.AutoReel = false
+            autoreel_running = false
+        end
+        SaveSettings()
+        if state then
+            local success, err = pcall(StartAutoReelNormal)
+            if not success then
+                warn("Error in StartAutoReelNormal: " .. err)
+                normalmode = false
+                Settings.NormalMode = false
+                SaveSettings()
+            end
+        else
+            normalmode_running = false
+        end
+    end
+})
+
+-- Smoothness Dropdown
+MainTab:AddDropdown({
+    Name = "Smoothness",
+    Options = {"Slow", "Medium", "Fast"},
+    Default = Settings.Smoothness or "Medium",
+    Callback = function(choice)
+        smoothness = choice
+        Settings.Smoothness = choice
+        SaveSettings()
+        if autoreel or normalmode then
+            autoreel_running = false
+            normalmode_running = false
+            local success, err
+            if autoreel then
+                success, err = pcall(StartAutoReel)
+            elseif normalmode then
+                success, err = pcall(StartAutoReelNormal)
+            end
+            if not success then
+                warn("Error restarting AutoReel: " .. err)
+                autoreel = false
+                normalmode = false
+                Settings.AutoReel = false
+                Settings.NormalMode = false
+                SaveSettings()
+            end
+        end
+    end
+})
+
+-- Instant Reel Button
+MainTab:AddButton({
+    Name = "Instant Reel",
+    Callback = function()
+        local args = {
+            [1] = 100,
+            [2] = false
+        }
+        print("Firing reelfinished with args:", args[1], args[2])
+        game:GetService("ReplicatedStorage").events.reelfinished:FireServer(unpack(args))
+    end
+})
+
+-- Normal Appraise Button
+MiscTab:AddButton({
+    Name = "Normal Appraise",
+    Callback = function()
+        local currentTime = tick()
+        if currentTime - lastAppraiseTime < 0.3 then
+            warn("Normal Appraise on cooldown")
+            return
+        end
+        lastAppraiseTime = currentTime
+        local success, err = pcall(function()
+            local args = {
+                [1] = 6,
+                [2] = 1
+            }
+            local net = game:GetService("ReplicatedStorage").packages.Net
+            local dialogInteract = net:FindFirstChild("RF/DialogInteract")
+            if dialogInteract then
+                print("Firing DialogInteract for Normal Appraise with args:", args[1], args[2])
+                dialogInteract:InvokeServer(unpack(args))
+            else
+                warn("DialogInteract not found")
+            end
+        end)
+        if not success then
+            warn("Error in Normal Appraise: " .. err)
+        end
+    end
+})
+
+-- Treasure Appraise(Far) Button
+MiscTab:AddButton({
+    Name = "Treasure Appraise(Far)",
+    Callback = function()
+        local success, err = pcall(function()
+            local args = {
+                [1] = 3,
+                [2] = 1
+            }
+            local net = game:GetService("ReplicatedStorage").packages.Net
+            local dialogInteract = net:FindFirstChild("RF/DialogInteract")
+            if dialogInteract then
+                print("Firing DialogInteract for Treasure Appraise(Far) with args:", args[1], args[2])
+                dialogInteract:InvokeServer(unpack(args))
+            else
+                warn("DialogInteract not found")
+            end
+        end)
+        if not success then
+            warn("Error in Treasure Appraise(Far): " .. err)
+        end
+    end
+})
