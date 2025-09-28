@@ -14,7 +14,7 @@ local Window = redzlib:MakeWindow({
 })
 
 -- Check if the new image asset loads
-local newImageId = "rbxassetid://104942786807592" -- Reverted to working ID
+local newImageId = "rbxassetid://74653957853906" -- Reverted to working ID
 local fallbackImageId = "rbxassetid://139438145143663"
 local imageId = newImageId
 local success, err = pcall(function()
