@@ -9,12 +9,12 @@ end
 -- Create window
 local Window = redzlib:MakeWindow({
     Title = "Fisch Auto Reel",
-    SubTitle = "Legit & Normal Mode",
+    SubTitle = "Make For Lazy Fisher",
     SaveFolder = "FischSettings"
 })
 
 -- Check if the new image asset loads
-local newImageId = "rbxassetid://104942786807592" -- Reverted to working ID
+local newImageId = "rbxassetid://135322148494327" -- Reverted to working ID
 local fallbackImageId = "rbxassetid://139438145143663"
 local imageId = newImageId
 local success, err = pcall(function()
