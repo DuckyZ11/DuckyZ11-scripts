@@ -14,7 +14,7 @@ local Window = redzlib:MakeWindow({
 })
 
 -- Check if the new image asset loads
-local newImageId = "rbxassetid://135322148494327" -- Reverted to working ID
+local newImageId = "rbxassetid://135322148494327"
 local fallbackImageId = "rbxassetid://139438145143663"
 local imageId = newImageId
 local success, err = pcall(function()
@@ -52,7 +52,8 @@ local SETTINGS_FILE = "Fischsv.json"
 local Settings = {
     AutoReel = false,
     NormalMode = false,
-    Smoothness = "Medium"
+    Smoothness = "Medium",
+    AutoCast = false -- เพิ่ม AutoCast
 }
 
 -- Load settings from file
@@ -73,6 +74,8 @@ local normalmode = Settings.NormalMode
 local smoothness = Settings.Smoothness
 local autoreel_running = false
 local normalmode_running = false
+local autocast = Settings.AutoCast -- เพิ่ม AutoCast
+local autocast_running = false -- เพิ่มสถานะ AutoCast
 
 -- Save settings function
 local function SaveSettings()
@@ -231,6 +234,43 @@ local function StartAutoReelNormal()
     end)
 end
 
+-- Auto Cast (Every 3 Seconds)
+local function StartAutoCast()
+    if autocast_running then return end
+    autocast_running = true
+    task.defer(function()
+        while autocast do
+            local success, err = pcall(function()
+                local char = player.Character
+                if char then
+                    local rod = char:FindFirstChild("Tryhard Rod")
+                    if rod and rod:FindFirstChild("events") and rod.events:FindFirstChild("castAsync") then
+                        local args = {
+                            [1] = 35.999999999999996,
+                            [2] = 1
+                        }
+                        rod.events.castAsync:InvokeServer(unpack(args))
+                    else
+                        warn("Tryhard Rod or castAsync event not found")
+                    end
+                else
+                    warn("Character not found")
+                end
+            end)
+            if not success then
+                warn("Error in AutoCast: " .. err)
+                autocast = false
+                Settings.AutoCast = false
+                SaveSettings()
+                autocast_running = false
+                return
+            end
+            task.wait(3 + math.random(0, 0.5)) -- รอ 3-3.5 วินาทีเพื่อเลียนแบบมนุษย์
+        end
+        autocast_running = false
+    end)
+end
+
 -- Auto Reel Toggle (Legit mode)
 MainTab:AddToggle({
     Name = "Auto Reel (Legit)",
@@ -283,6 +323,29 @@ MainTab:AddToggle({
             end
         else
             normalmode_running = false
+        end
+    end
+})
+
+-- Auto Cast Toggle
+MainTab:AddToggle({
+    Name = "Auto Cast (Every 3 Seconds)",
+    Flag = "AutoCast",
+    Default = autocast,
+    Callback = function(state)
+        autocast = state
+        Settings.AutoCast = state
+        SaveSettings()
+        if state then
+            local success, err = pcall(StartAutoCast)
+            if not success then
+                warn("Error in StartAutoCast: " .. err)
+                autocast = false
+                Settings.AutoCast = false
+                SaveSettings()
+            end
+        else
+            autocast_running = false
         end
     end
 })
