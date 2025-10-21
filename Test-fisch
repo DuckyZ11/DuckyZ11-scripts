@@ -9,12 +9,12 @@ end
 -- Create window
 local Window = redzlib:MakeWindow({
     Title = "Fisch Auto Reel",
-    SubTitle = "Legit & Normal Mode",
+    SubTitle = "Make For Lazy Fisher",
     SaveFolder = "FischSettings"
 })
 
 -- Check if the new image asset loads
-local newImageId = "rbxassetid://74653957853906" -- Reverted to working ID
+local newImageId = "rbxassetid://135322148494327"
 local fallbackImageId = "rbxassetid://139438145143663"
 local imageId = newImageId
 local success, err = pcall(function()
@@ -35,18 +35,17 @@ Window:AddMinimizeButton({
     Corner = { CornerRadius = UDim.new(0, 8) }
 })
 
--- Create tabs
+-- Create single tab
 local MainTab = Window:MakeTab({"Main", "rbxassetid://7733960981"})
-local MiscTab = Window:MakeTab({"Misc", "rbxassetid://7734056608"})
 Window:SelectTab(MainTab)
 
--- Add sections
-local MainSection = MainTab:AddSection({"Fisch Auto Reel"})
-local MiscSection = MiscTab:AddSection({"Miscellaneous"})
+-- Add section
+local Section = MainTab:AddSection({"Fisch Auto Reel"})
 
 -- Initialize services
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local player = Players.LocalPlayer
 
 -- Initialize settings
@@ -54,7 +53,9 @@ local SETTINGS_FILE = "Fischsv.json"
 local Settings = {
     AutoReel = false,
     NormalMode = false,
-    Smoothness = "Medium"
+    Smoothness = "Medium",
+    AutoCast = false,
+    CastMode = "Legit"
 }
 
 -- Load settings from file
@@ -73,9 +74,11 @@ end
 local autoreel = Settings.AutoReel
 local normalmode = Settings.NormalMode
 local smoothness = Settings.Smoothness
+local autocast = Settings.AutoCast
+local castmode = Settings.CastMode
 local autoreel_running = false
 local normalmode_running = false
-local lastAppraiseTime = 0 -- For Normal Appraise cooldown
+local autocast_running = false
 
 -- Save settings function
 local function SaveSettings()
@@ -99,14 +102,24 @@ local function lerp(a, b, t)
     return a + (b - a) * t
 end
 
--- Get smoothness value (faster tracking)
-local function getSmoothnessValue()
-    if smoothness == "Slow" then
-        return 0.15
-    elseif smoothness == "Fast" then
-        return 0.25
-    else -- Medium
-        return 0.2
+-- Get smoothness value (faster tracking for Auto Reel Normal)
+local function getSmoothnessValue(isNormalMode)
+    if isNormalMode then
+        if smoothness == "Slow" then
+            return 0.25
+        elseif smoothness == "Fast" then
+            return 0.8
+        else -- Medium
+            return 0.4
+        end
+    else
+        if smoothness == "Slow" then
+            return 0.15
+        elseif smoothness == "Fast" then
+            return 0.25
+        else -- Medium
+            return 0.2
+        end
     end
 end
 
@@ -135,7 +148,7 @@ local function StartAutoReel()
                                     if fish and playerbar then
                                         local currentX = playerbar.Position.X.Scale
                                         local currentY = playerbar.Position.Y.Scale
-                                        local lerpT = getSmoothnessValue()
+                                        local lerpT = getSmoothnessValue(false)
                                         while autoreel and reel and reel.Parent and fish and playerbar and tool.Parent == char do
                                             local targetX = fish.Position.X.Scale + math.random(-0.005, 0.005)
                                             local targetY = fish.Position.Y.Scale + math.random(-0.005, 0.005)
@@ -197,7 +210,7 @@ local function StartAutoReelNormal()
                                     if fish and playerbar then
                                         local currentX = playerbar.Position.X.Scale
                                         local currentY = playerbar.Position.Y.Scale
-                                        local lerpT = getSmoothnessValue()
+                                        local lerpT = getSmoothnessValue(true)
                                         while normalmode and reel and reel.Parent and fish and playerbar and tool.Parent == char do
                                             local targetX = fish.Position.X.Scale + math.random(-0.01, 0.01)
                                             local targetY = fish.Position.Y.Scale + math.random(-0.01, 0.01)
@@ -231,6 +244,65 @@ local function StartAutoReelNormal()
             task.wait(0.1)
         end
         normalmode_running = false
+    end)
+end
+
+-- Auto Cast
+local function StartAutoCast()
+    if autocast_running then return end
+    autocast_running = true
+    task.spawn(function()
+        while autocast do
+            local success, err = pcall(function()
+                local LocalCharacter = player.Character
+                if LocalCharacter then
+                    local tool = LocalCharacter:FindFirstChildOfClass("Tool")
+                    if tool then
+                        local hasBobber = tool:FindFirstChild("bobber")
+                        if not hasBobber then
+                            if castmode == "Legit" then
+                                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, player, 0)
+                                local HumanoidRootPart = GetHumanoidRootPart()
+                                local connection
+                                connection = HumanoidRootPart.ChildAdded:Connect(function()
+                                    if HumanoidRootPart:FindFirstChild("power") and HumanoidRootPart.power:FindFirstChild("powerbar") and HumanoidRootPart.power.powerbar:FindFirstChild("bar") then
+                                        local barConnection
+                                        barConnection = HumanoidRootPart.power.powerbar.bar.Changed:Connect(function(property)
+                                            if property == "Size" then
+                                                if HumanoidRootPart.power.powerbar.bar.Size == UDim2.new(1, 0, 1, 0) then
+                                                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, player, 0)
+                                                    if barConnection then barConnection:Disconnect() end
+                                                end
+                                            end
+                                        end)
+                                    end
+                                end)
+                                task.spawn(function()
+                                    task.wait(5)
+                                    if connection then connection:Disconnect() end
+                                end)
+                            elseif castmode == "Blatant" then
+                                local rod = LocalCharacter:FindFirstChildOfClass("Tool")
+                                if rod and rod:FindFirstChild("values") and string.find(rod.Name, "Rod") then
+                                    local Random = math.random(90, 99)
+                                    rod.events.cast:FireServer(Random)
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+            if not success then
+                warn("Error in AutoCast: " .. err)
+                autocast = false
+                Settings.AutoCast = false
+                SaveSettings()
+                autocast_running = false
+                return
+            end
+            task.wait(0.5)
+        end
+        autocast_running = false
     end)
 end
 
@@ -290,6 +362,51 @@ MainTab:AddToggle({
     end
 })
 
+-- Auto Cast Toggle
+MainTab:AddToggle({
+    Name = "Auto Cast",
+    Flag = "AutoCast",
+    Default = autocast,
+    Callback = function(state)
+        autocast = state
+        Settings.AutoCast = state
+        SaveSettings()
+        if state then
+            local success, err = pcall(StartAutoCast)
+            if not success then
+                warn("Error in StartAutoCast: " .. err)
+                autocast = false
+                Settings.AutoCast = false
+                SaveSettings()
+            end
+        else
+            autocast_running = false
+        end
+    end
+})
+
+-- Cast Mode Dropdown
+MainTab:AddDropdown({
+    Name = "Cast Mode",
+    Options = {"Legit", "Blatant"},
+    Default = Settings.CastMode or "Legit",
+    Callback = function(choice)
+        castmode = choice
+        Settings.CastMode = choice
+        SaveSettings()
+        if autocast then
+            autocast_running = false
+            local success, err = pcall(StartAutoCast)
+            if not success then
+                warn("Error restarting AutoCast: " .. err)
+                autocast = false
+                Settings.AutoCast = false
+                SaveSettings()
+            end
+        end
+    end
+})
+
 -- Smoothness Dropdown
 MainTab:AddDropdown({
     Name = "Smoothness",
@@ -330,59 +447,5 @@ MainTab:AddButton({
         }
         print("Firing reelfinished with args:", args[1], args[2])
         game:GetService("ReplicatedStorage").events.reelfinished:FireServer(unpack(args))
-    end
-})
-
--- Normal Appraise Button
-MiscTab:AddButton({
-    Name = "Normal Appraise",
-    Callback = function()
-        local currentTime = tick()
-        if currentTime - lastAppraiseTime < 0.3 then
-            warn("Normal Appraise on cooldown")
-            return
-        end
-        lastAppraiseTime = currentTime
-        local success, err = pcall(function()
-            local args = {
-                [1] = 6,
-                [2] = 1
-            }
-            local net = game:GetService("ReplicatedStorage").packages.Net
-            local dialogInteract = net:FindFirstChild("RF/DialogInteract")
-            if dialogInteract then
-                print("Firing DialogInteract for Normal Appraise with args:", args[1], args[2])
-                dialogInteract:InvokeServer(unpack(args))
-            else
-                warn("DialogInteract not found")
-            end
-        end)
-        if not success then
-            warn("Error in Normal Appraise: " .. err)
-        end
-    end
-})
-
--- Treasure Appraise(Far) Button
-MiscTab:AddButton({
-    Name = "Treasure Appraise(Far)",
-    Callback = function()
-        local success, err = pcall(function()
-            local args = {
-                [1] = 3,
-                [2] = 1
-            }
-            local net = game:GetService("ReplicatedStorage").packages.Net
-            local dialogInteract = net:FindFirstChild("RF/DialogInteract")
-            if dialogInteract then
-                print("Firing DialogInteract for Treasure Appraise(Far) with args:", args[1], args[2])
-                dialogInteract:InvokeServer(unpack(args))
-            else
-                warn("DialogInteract not found")
-            end
-        end)
-        if not success then
-            warn("Error in Treasure Appraise(Far): " .. err)
-        end
     end
 })
