@@ -1,50 +1,53 @@
-local success, redzlib = pcall(function()
-    return loadstring(game:HttpGet("https://gist.githubusercontent.com/MjContiga1/54c07e52fc2aab8873b68d91a71d11c6/raw/fb4f1d6a7c89465f3b39bc00eeaf24b88f20/Redz%2520hub.lua"))()
+-- Load redzlib
+local redzlib
+local success, result = pcall(function()
+    return loadstring(game:HttpGet("https://gist.githubusercontent.com/MjContiga1/54c07e52fc2aab8873b68d91a71d11c6/raw/fb4f1d6a7c89465f3b39bc00eeff09af24b88f20/Redz%2520hub.lua"))()
 end)
 if not success then
-    warn("Failed to load redzlib: " .. tostring(redzlib))
+    warn("Failed to load redzlib: " .. tostring(result))
     return
 end
+redzlib = result
+print("redzlib loaded successfully")
 
 -- Create window
-local Window = redzlib:MakeWindow({
-    Title = "Fisch Auto Reel",
-    SubTitle = "Make For Lazy Fisher",
-})
-
--- Check if the new image asset loads
-local newImageId = "rbxassetid://135322148494327"
-local fallbackImageId = "rbxassetid://139438145143663"
-local imageId = newImageId
+local Window
 local success, err = pcall(function()
-    game:GetService("ContentProvider"):PreloadAsync({newImageId})
+    Window = redzlib:MakeWindow({
+        Title = "Fisch Auto Reel",
+        SubTitle = "Make For Lazy Fisher"
+    })
 end)
 if not success then
-    warn("Failed to load image " .. newImageId .. ": " .. tostring(err))
-    imageId = fallbackImageId
+    warn("Failed to create window: " .. err)
+    return
 end
+print("Window created successfully")
 
--- Add minimize button (square with rounded corners)
-Window:AddMinimizeButton({
-    Button = { 
-        Image = imageId, 
-        BackgroundTransparency = 0,
-        Size = UDim2.new(0, 44, 0, 44)
-    },
-    Corner = { CornerRadius = UDim.new(0, 8) }
-})
+-- Add minimize button
+local success, err = pcall(function()
+    Window:AddMinimizeButton({
+        Button = { 
+            Image = "rbxassetid://139438145143663", 
+            BackgroundTransparency = 0 
+        },
+        Corner = { CornerRadius = UDim.new(35, 1) }
+    })
+end)
+if not success then
+    warn("Failed to add minimize button: " .. err)
+end
+print("Minimize button added")
 
 -- Create tabs
 local MainTab = Window:MakeTab({"Main", "rbxassetid://7733960981"})
-local MiscTab = Window:MakeTab({"Misc", "rbxassetid://7733960981"})
-local TeleportTab = Window:MakeTab({"Teleport", "rbxassetid://7733960981"})
+local PlayerTab = Window:MakeTab({"Player", "rbxassetid://7743875962"})
 local FastTab = Window:MakeTab({"Fast", "rbxassetid://7733960981"})
 Window:SelectTab(MainTab)
 
 -- Add sections
 local MainSection = MainTab:AddSection({"Fisch Auto Reel"})
-local PlayerSection = MiscTab:AddSection({"Player Settings"})
-local Teleporting = TeleportTab:AddSection({"Teleport"})
+local PlayerSection = PlayerTab:AddSection({"Player Settings"})
 local FastSection = FastTab:AddSection({"Fast Reel"})
 
 -- Initialize services
@@ -68,12 +71,27 @@ local autoreel_running = false
 local normalmode_running = false
 local autocast_coroutine = nil
 local autoshake_connection = nil
+local autoreel_coroutine = nil
 local Unloaded = false
+
+-- Check game structure
+local events = ReplicatedStorage:FindFirstChild("events")
+if not events then
+    warn("ReplicatedStorage.events not found")
+end
+local resources = ReplicatedStorage:FindFirstChild("resources")
+if not resources then
+    warn("ReplicatedStorage.resources not found")
+end
 
 -- Get HumanoidRootPart
 local function GetHumanoidRootPart()
     local char = player.Character or player.CharacterAdded:Wait()
-    return char:WaitForChild("HumanoidRootPart")
+    local hrp = char:WaitForChild("HumanoidRootPart", 5)
+    if not hrp then
+        warn("HumanoidRootPart not found")
+    end
+    return hrp
 end
 
 -- Linear interpolation for smooth movement
@@ -81,7 +99,7 @@ local function lerp(a, b, t)
     return a + (b - a) * t
 end
 
--- Get smoothness value (faster tracking for Auto Reel Normal)
+-- Get smoothness value
 local function getSmoothnessValue(isNormalMode)
     if isNormalMode then
         if smoothness == "Slow" then
@@ -104,15 +122,24 @@ end
 
 -- ResetTool function
 local function ResetTool()
-    if player.Character and player.Character.Humanoid then
-        player.Character.Humanoid:UnequipTools()
+    local char = player.Character
+    if char and char.Humanoid then
+        char.Humanoid:UnequipTools()
+        print("Tool reset")
+    else
+        warn("Cannot reset tool: Character or Humanoid not found")
     end
 end
 
 -- Count reel instances in PlayerGui
 local function CountReelInstances()
     local count = 0
-    for _, child in pairs(player.PlayerGui:GetChildren()) do
+    local gui = player:FindFirstChild("PlayerGui")
+    if not gui then
+        warn("PlayerGui not found")
+        return count
+    end
+    for _, child in pairs(gui:GetChildren()) do
         if child.Name == "reel" then
             count = count + 1
         end
@@ -122,24 +149,32 @@ end
 
 -- Hookmetamethod for FireServer
 local oldnamecall
-oldnamecall = hookmetamethod(game, "__namecall", function(...)
-    if Unloaded then
-        return oldnamecall(...)
-    end
-    if not checkcaller() then
-        local Method = getnamecallmethod()
-        local Args = {...}
-        local self = table.remove(Args, 1)
-        if Method == "FireServer" and self == ReplicatedStorage.events.reelfinished then
-            if perfect_reel then
-                Args[1] = 100 -- Reel percentage
-                Args[2] = true -- If the reel was perfect
-            end
-            return oldnamecall(self, unpack(Args))
+local success, err = pcall(function()
+    oldnamecall = hookmetamethod(game, "__namecall", function(...)
+        if Unloaded then
+            return oldnamecall(...)
         end
-    end
-    return oldnamecall(...)
+        if not checkcaller() then
+            local Method = getnamecallmethod()
+            local Args = {...}
+            local self = table.remove(Args, 1)
+            if Method == "FireServer" and self == ReplicatedStorage.events.reelfinished then
+                if perfect_reel then
+                    Args[1] = 100 -- Reel percentage
+                    Args[2] = true -- If the reel was perfect
+                    print("hookmetamethod: Adjusted reelfinished args to 100, true")
+                else
+                    print("hookmetamethod: reelfinished called with args:", Args[1], Args[2])
+                end
+                return oldnamecall(self, unpack(Args))
+            end
+        end
+        return oldnamecall(...)
+    end)
 end)
+if not success then
+    warn("hookmetamethod not supported or failed: " .. err)
+end
 
 -- Auto Click (Auto Shake) Coroutine
 local function StartAutoShake()
@@ -147,24 +182,32 @@ local function StartAutoShake()
         autoshake_connection:Disconnect()
         autoshake_connection = nil
         GuiService.SelectedObject = nil
+        print("AutoShake connection stopped")
     end
     local function MountShakeUI(ShakeUI)
         local SafeZone = ShakeUI:WaitForChild("safezone", 5)
         if not SafeZone then
-            warn("Unable to mount shake UI.")
+            warn("Unable to mount shake UI: safezone not found")
             return
         end
+        print("AutoShake: Mounted shake UI")
         local Connection = SafeZone.ChildAdded:Connect(function(Child)
             if not Child:IsA("ImageButton") or not autoshake or Unloaded then
                 return
             end
+            print("AutoShake: Detected ImageButton in safezone")
             local Done = false
             task.spawn(function()
                 repeat
                     RunService.Heartbeat:Wait()
                     if Child:IsA("ImageButton") then
-                        Child.Selectable = true
-                        GuiService.SelectedObject = Child
+                        local success, err = pcall(function()
+                            Child.Selectable = true
+                            GuiService.SelectedObject = Child
+                        end)
+                        if not success then
+                            warn("AutoShake: Error selecting button: " .. err)
+                        end
                     end
                 until Done or not autoshake or Unloaded
             end)
@@ -179,39 +222,37 @@ local function StartAutoShake()
             repeat
                 RunService.Heartbeat:Wait()
                 if autoshake and not Unloaded and GuiService.SelectedObject and GuiService.SelectedObject:IsDescendantOf(SafeZone) then
-                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
-                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+                    local success, err = pcall(function()
+                        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+                        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+                    end)
+                    if not success then
+                        warn("AutoShake: Error sending key event: " .. err)
+                    else
+                        print("AutoShake: Simulated Enter key press")
+                    end
                 end
             until not SafeZone:IsDescendantOf(player.PlayerGui) or not autoshake or Unloaded
             Connection:Disconnect()
             GuiService.SelectedObject = nil
+            print("AutoShake: Stopped shake UI loop")
         end)
         autoshake_connection = Connection
     end
     autoshake_connection = player.PlayerGui.ChildAdded:Connect(function(Child)
         if Child.Name == "shakeui" and Child:IsA("ScreenGui") and autoshake and not Unloaded then
+            print("AutoShake: Detected shakeui")
             MountShakeUI(Child)
         end
     end)
 end
 
--- Cleanup on script unload
-game:BindToClose(function()
-    Unloaded = true
-    if autocast_coroutine then
-        coroutine.close(autocast_coroutine)
-        autocast_coroutine = nil
-    end
-    if autoshake_connection then
-        autoshake_connection:Disconnect()
-        autoshake_connection = nil
-        GuiService.SelectedObject = nil
-    end
-end)
-
 -- Auto Reel (Legit mode, continuous tracking)
 local function StartAutoReel()
-    if autoreel_running or normalmode_running then return end
+    if autoreel_running or normalmode_running then
+        warn("AutoReel: Already running another reel mode")
+        return
+    end
     autoreel_running = true
     task.defer(function()
         while autoreel and not Unloaded do
@@ -247,12 +288,13 @@ local function StartAutoReel()
                                             playerbar = bar and bar:FindFirstChild("playerbar")
                                         end
                                     else
-                                        warn("Reel UI elements not found")
+                                        warn("AutoReel: Reel UI elements not found")
                                     end
                                 end)
                                 if not success then
-                                    warn("Error in AutoReel: " .. err)
+                                    warn("AutoReel: Error: " .. err)
                                     autoreel = false
+                                    autoreel_running = false
                                     return
                                 end
                                 task.wait(0.1)
@@ -261,7 +303,7 @@ local function StartAutoReel()
                     end
                 end
             else
-                warn("Reel UI not found")
+                warn("AutoReel: Reel UI not found")
             end
             task.wait(0.1)
         end
@@ -271,7 +313,10 @@ end
 
 -- Auto Reel Normal (continuous tracking)
 local function StartAutoReelNormal()
-    if normalmode_running or autoreel_running then return end
+    if normalmode_running or autoreel_running then
+        warn("AutoReelNormal: Already running another reel mode")
+        return
+    end
     normalmode_running = true
     task.defer(function()
         while normalmode and not Unloaded do
@@ -307,12 +352,13 @@ local function StartAutoReelNormal()
                                             playerbar = bar and bar:FindFirstChild("playerbar")
                                         end
                                     else
-                                        warn("Reel UI elements not found")
+                                        warn("AutoReelNormal: Reel UI elements not found")
                                     end
                                 end)
                                 if not success then
-                                    warn("Error in AutoReelNormal: " .. err)
+                                    warn("AutoReelNormal: Error: " .. err)
                                     normalmode = false
+                                    normalmode_running = false
                                     return
                                 end
                                 task.wait(0.1)
@@ -321,7 +367,7 @@ local function StartAutoReelNormal()
                     end
                 end
             else
-                warn("Reel UI not found")
+                warn("AutoReelNormal: Reel UI not found")
             end
             task.wait(0.1)
         end
@@ -334,6 +380,7 @@ local function StartAutoCast()
     if autocast_coroutine then
         coroutine.close(autocast_coroutine)
         autocast_coroutine = nil
+        print("AutoCast: Stopped previous coroutine")
     end
     autocast_coroutine = coroutine.create(function()
         local LastCastAttempt = 0
@@ -344,152 +391,89 @@ local function StartAutoCast()
             local success, err = pcall(function()
                 local CurrentTool = player.Character and player.Character:FindFirstChildOfClass("Tool")
                 if not CurrentTool then
+                    warn("AutoCast: No tool equipped")
                     return
                 end
                 local Values = CurrentTool:FindFirstChild("values")
-                if CurrentTool and Values then
-                    local Events = CurrentTool:FindFirstChild("events")
-                    if Values:FindFirstChild("bite") and Values.bite.Value == true and Values.casted.Value == true then
-                        if not player.PlayerGui:FindFirstChild("reel") and tick() - LastCastAttempt > 5 then
-                            ResetTool()
-                        end
-                    end
-                    if CountReelInstances() > 1 then
+                if not Values then
+                    warn("AutoCast: Tool values not found")
+                    return
+                end
+                local Events = CurrentTool:FindFirstChild("events")
+                if not Events then
+                    warn("AutoCast: Tool events not found")
+                    return
+                end
+                if Values:FindFirstChild("bite") and Values.bite.Value == true and Values.casted.Value == true then
+                    if not player.PlayerGui:FindFirstChild("reel") and tick() - LastCastAttempt > 5 then
                         ResetTool()
-                        for _, Child in pairs(player.PlayerGui:GetChildren()) do
-                            if Child.Name == "reel" then
-                                Child:Destroy()
-                            end
+                        print("AutoCast: Reset tool due to no reel UI")
+                    end
+                end
+                if CountReelInstances() > 1 then
+                    ResetTool()
+                    for _, Child in pairs(player.PlayerGui:GetChildren()) do
+                        if Child.Name == "reel" then
+                            Child:Destroy()
+                            print("AutoCast: Destroyed extra reel UI")
                         end
                     end
-                    if Values.casted.Value == false then
-                        LastCastAttempt = tick()
-                        local AnimationFolder = ReplicatedStorage:WaitForChild("resources"):WaitForChild("animations")
-                        local CastAnimation = player.Character:FindFirstChild("Humanoid"):LoadAnimation(AnimationFolder.fishing.throw)
-                        CastAnimation.Priority = Enum.AnimationPriority.Action3
-                        CastAnimation:Play()
-                        Events.cast:FireServer(100, 1)
-                        CastAnimation.Stopped:Once(function()
-                            CastAnimation:Destroy()
-                            local WaitingAnimation = player.Character:FindFirstChild("Humanoid"):LoadAnimation(AnimationFolder.fishing.waiting)
-                            WaitingAnimation.Priority = Enum.AnimationPriority.Action3
-                            WaitingAnimation:Play()
-                            local UnequippedLoop, CastConnection
-                            CastConnection = Values.casted.Changed:Once(function()
-                                WaitingAnimation:Stop()
-                                WaitingAnimation:Destroy()
-                                coroutine.close(UnequippedLoop)
-                            end)
-                            UnequippedLoop = coroutine.create(function()
-                                repeat
-                                    task.wait()
-                                until not player.Character:FindFirstChild(CurrentTool.Name) or not autocast or Unloaded
-                                WaitingAnimation:Stop()
-                                WaitingAnimation:Destroy()
-                                CastConnection:Disconnect()
-                            end)
-                            coroutine.resume(UnequippedLoop)
-                        end)
+                end
+                if Values.casted.Value == false then
+                    LastCastAttempt = tick()
+                    local AnimationFolder = ReplicatedStorage:WaitForChild("resources", 5):WaitForChild("animations", 5)
+                    if not AnimationFolder then
+                        warn("AutoCast: Animation folder not found")
+                        return
                     end
+                    local success, CastAnimation = pcall(function()
+                        return player.Character:FindFirstChild("Humanoid"):LoadAnimation(AnimationFolder.fishing.throw)
+                    end)
+                    if not success then
+                        warn("AutoCast: Failed to load throw animation: " .. CastAnimation)
+                        return
+                    end
+                    CastAnimation.Priority = Enum.AnimationPriority.Action3
+                    CastAnimation:Play()
+                    print("AutoCast: Playing throw animation")
+                    Events.cast:FireServer(100, 1)
+                    print("AutoCast: Fired cast event")
+                    CastAnimation.Stopped:Once(function()
+                        CastAnimation:Destroy()
+                        local success, WaitingAnimation = pcall(function()
+                            return player.Character:FindFirstChild("Humanoid"):LoadAnimation(AnimationFolder.fishing.waiting)
+                        end)
+                        if not success then
+                            warn("AutoCast: Failed to load waiting animation: " .. WaitingAnimation)
+                            return
+                        end
+                        WaitingAnimation.Priority = Enum.AnimationPriority.Action3
+                        WaitingAnimation:Play()
+                        print("AutoCast: Playing waiting animation")
+                        local UnequippedLoop, CastConnection
+                        CastConnection = Values.casted.Changed:Once(function()
+                            WaitingAnimation:Stop()
+                            WaitingAnimation:Destroy()
+                            coroutine.close(UnequippedLoop)
+                            print("AutoCast: Stopped waiting animation")
+                        end)
+                        UnequippedLoop = coroutine.create(function()
+                            repeat
+                                task.wait()
+                            until not player.Character:FindFirstChild(CurrentTool.Name) or not autocast or Unloaded
+                            WaitingAnimation:Stop()
+                            WaitingAnimation:Destroy()
+                            CastConnection:Disconnect()
+                            print("AutoCast: Unequipped tool or stopped")
+                        end)
+                        coroutine.resume(UnequippedLoop)
+                    end)
                 end
             end)
             if not success then
-                warn("Error in AutoCast: " .. err)
+                warn("AutoCast: Error: " .. err)
                 autocast = false
                 break
             end
         end
-    end)
-    coroutine.resume(autocast_coroutine)
-end
-
--- Fast Reel Coroutine
-local AutoReelCoroutine = coroutine.create(function()
-    while true do
-        if Unloaded then break end
-        RunService.RenderStepped:Wait()
-        local ReelUI = player.PlayerGui:FindFirstChild("reel")
-        if not ReelUI then
-            continue
-        end
-        if instant_reel then
-            local Bar = ReelUI:FindFirstChild("bar")
-            if Bar then
-                local ReelScript = Bar:FindFirstChild("reel")
-                if ReelScript and ReelScript.Enabled == true then
-                    ReplicatedStorage.events.reelfinished:FireServer(100, perfect_reel)
-                end
-            end
-        elseif autoreel_fast then
-            local Bar = ReelUI:FindFirstChild("bar")
-            if not Bar then
-                continue
-            end
-            local PlayerBar = Bar:FindFirstChild("playerbar")
-            local TargetBar = Bar:FindFirstChild("fish")
-            if PlayerBar and TargetBar then
-                while Bar and ReelUI:IsDescendantOf(player.PlayerGui) and autoreel_fast and not Unloaded do
-                    RunService.RenderStepped:Wait()
-                    local UnfilteredTargetPosition = PlayerBar.Position:Lerp(TargetBar.Position, 0.7)
-                    local TargetPosition = UDim2.fromScale(
-                        math.clamp(UnfilteredTargetPosition.X.Scale, 0.15, 0.85),
-                        UnfilteredTargetPosition.Y.Scale
-                    )
-                    PlayerBar.Position = TargetPosition
-                end
-            end
-        end
-    end
-end)
-coroutine.resume(AutoReelCoroutine)
-
--- Auto Reel Toggle (Legit mode)
-MainSection:AddToggle({
-    Name = "Auto Reel (Legit)",
-    Flag = "AutoReel",
-    Default = false,
-    Callback = function(state)
-        autoreel = state
-        if state then
-            -- Disable other reel modes to prevent conflicts
-            normalmode = false
-            autoreel_fast = false
-            instant_reel = false
-            normalmode_running = false
-            local success, err = pcall(StartAutoReel)
-            if not success then
-                warn("Error in StartAutoReel: " .. err)
-                autoreel = false
-            end
-        else
-            autoreel_running = false
-        end
-    end
-})
-
--- Auto Reel Normal Toggle
-MainSection:AddToggle({
-    Name = "Auto Reel (Normal)",
-    Flag = "NormalMode",
-    Default = false,
-    Callback = function(state)
-        normalmode = state
-        if state then
-            -- Disable other reel modes to prevent conflicts
-            autoreel = false
-            autoreel_fast = false
-            instant_reel = false
-            autoreel_running = false
-            local success, err = pcall(StartAutoReelNormal)
-            if not success then
-                warn("Error in StartAutoReelNormal: " .. err)
-                normalmode = false
-            end
-        else
-            normalmode_running = false
-        end
-    end
-})
-
--- Smoothness Dropdown
-MainSection:AddDropdown
+   
