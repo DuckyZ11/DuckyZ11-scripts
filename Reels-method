@@ -37,7 +37,7 @@ Window:AddMinimizeButton({
 
 -- Create tabs
 local MainTab = Window:MakeTab({"Main", "rbxassetid://7733960981"})
-local InstantTab = Window:MakeTab({"Instant Tab", "rbxassetid://7733960981"})
+local InstantTab = Window:MakeTab({"Instant Tab", "rbxassetid://10709790202"})
 Window:SelectTab(MainTab)
 
 -- Add section for Main Tab
