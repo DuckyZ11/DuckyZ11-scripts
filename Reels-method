@@ -472,4 +472,135 @@ MainTab:AddToggle({
     end
 })
 
--- Auto Cast Mode Dro
+-- Auto Cast Mode Dropdown
+MainTab:AddDropdown({
+    Name = "Auto Cast Mode",
+    Options = {"Normal", "Max"},
+    Default = autoCastMode,
+    Callback = function(choice)
+        autoCastMode = choice
+    end
+})
+
+-- Auto Shake Toggle
+MainTab:AddToggle({
+    Name = "Auto Shake",
+    Flag = "AutoShake",
+    Default = autoShakeEnabled,
+    Callback = function(state)
+        autoShakeEnabled = state
+        if state then
+            local success, err = pcall(startAutoShake)
+            if not success then
+                warn("Error in StartAutoShake: " .. err)
+                autoShakeEnabled = false
+            end
+        else
+            stopAutoShake()
+        end
+    end
+})
+
+-- Shake Mode Dropdown
+MainTab:AddDropdown({
+    Name = "Shake Mode",
+    Options = {"Navigation", "Mouse"},
+    Default = ShakeMode,
+    Callback = function(choice)
+        ShakeMode = choice
+        if autoShakeEnabled then
+            stopAutoShake()
+            local success, err = pcall(startAutoShake)
+            if not success then
+                warn("Error restarting AutoShake: " .. err)
+                autoShakeEnabled = false
+            end
+        end
+    end
+})
+
+-- Smoothness Dropdown
+MainTab:AddDropdown({
+    Name = "Smoothness",
+    Options = {"Slow", "Medium", "Fast"},
+    Default = smoothness,
+    Callback = function(choice)
+        smoothness = choice
+        if autoreel or normalmode then
+            autoreel_running = false
+            normalmode_running = false
+            local success, err
+            if autoreel then
+                success, err = pcall(StartAutoReel)
+            elseif normalmode then
+                success, err = pcall(StartAutoReelNormal)
+            end
+            if not success then
+                warn("Error restarting AutoReel: " .. err)
+                autoreel = false
+                normalmode = false
+            end
+        end
+    end
+})
+
+-- Instant Reel Toggle (Instant Tab)
+InstantTab:AddToggle({
+    Name = "Instant Reel",
+    Flag = "InstantReel",
+    Default = instantreel,
+    Callback = function(state)
+        instantreel = state
+        if state and (autoreel or normalmode) then
+            autoreel = false
+            normalmode = false
+            autoreel_running = false
+            normalmode_running = false
+        end
+        if state then
+            local success, err = pcall(StartInstantReel)
+            if not success then
+                warn("Error in StartInstantReel: " .. err)
+                instantreel = false
+            end
+        else
+            instantreel_running = false
+        end
+    end
+})
+
+-- Instant Reel Mode Dropdown
+InstantTab:AddDropdown({
+    Name = "Instant Reel Mode",
+    Options = {"Normal", "Perfect"},
+    Default = instantReelMode,
+    Callback = function(choice)
+        instantReelMode = choice
+    end
+})
+
+-- Instant Reel Button
+MainTab:AddButton({
+    Name = "Instant Reel",
+    Callback = function()
+        local args = {
+            [1] = 100,
+            [2] = false
+        }
+        print("Firing reelfinished with args:", args[1], args[2])
+        ReplicatedStorage.events.reelfinished:FireServer(unpack(args))
+    end
+})
+
+-- Instant Reel Perfect Button
+MainTab:AddButton({
+    Name = "Instant Reel Perfect",
+    Callback = function()
+        local args = {
+            [1] = 100,
+            [2] = true
+        }
+        print("Firing reelfinished with args:", args[1], args[2])
+        ReplicatedStorage.events.reelfinished:FireServer(unpack(args))
+    end
+})
