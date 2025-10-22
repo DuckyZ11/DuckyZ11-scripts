@@ -35,62 +35,43 @@ Window:AddMinimizeButton({
     Corner = { CornerRadius = UDim.new(0, 8) }
 })
 
--- Create single tab
+-- Create tabs
 local MainTab = Window:MakeTab({"Main", "rbxassetid://7733960981"})
+local InstantTab = Window:MakeTab({"Instant Tab", "rbxassetid://7733960981"})
 Window:SelectTab(MainTab)
 
--- Add section
-local Section = MainTab:AddSection({"Fisch Auto Reel"})
+-- Add section for Main Tab
+local MainSection = MainTab:AddSection({"Fisch Auto Reel"})
+local InstantSection = InstantTab:AddSection({"Instant Reel"})
 
 -- Initialize services
 local Players = game:GetService("Players")
-local HttpService = game:GetService("HttpService")
-local player = Players.LocalPlayer
-
--- Initialize settings
-local SETTINGS_FILE = "Fischsv.json"
-local Settings = {
-    AutoReel = false,
-    NormalMode = false,
-    Smoothness = "Medium",
-    AutoCast = false -- เพิ่ม AutoCast
-}
-
--- Load settings from file
-if pcall(function() return readfile(SETTINGS_FILE) end) then
-    local success, data = pcall(function()
-        return HttpService:JSONDecode(readfile(SETTINGS_FILE))
-    end)
-    if success and data then
-        for k, v in pairs(data) do
-            Settings[k] = v
-        end
-    end
-end
+local RunService = game:GetService("RunService")
+local GuiService = game:GetService("GuiService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 -- Variables
-local autoreel = Settings.AutoReel
-local normalmode = Settings.NormalMode
-local smoothness = Settings.Smoothness
+local autoreel = false
+local normalmode = false
+local smoothness = "Medium"
+local autocast = false
+local autoCastMode = "Normal" -- New variable for Auto Cast mode
 local autoreel_running = false
 local normalmode_running = false
-local autocast = Settings.AutoCast -- เพิ่ม AutoCast
-local autocast_running = false -- เพิ่มสถานะ AutoCast
-
--- Save settings function
-local function SaveSettings()
-    pcall(function()
-        local dataToSave = {}
-        for k, v in pairs(Settings) do
-            dataToSave[k] = v
-        end
-        writefile(SETTINGS_FILE, HttpService:JSONEncode(dataToSave))
-    end)
-end
+local autocast_running = false
+local autoShakeEnabled = false
+local ShakeMode = "Navigation"
+local autoShakeConnection
+local instantreel = false
+local instantReelMode = "Normal"
+local instantreel_running = false
 
 -- Get HumanoidRootPart
 local function GetHumanoidRootPart()
-    local char = player.Character or player.CharacterAdded:Wait()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     return char:WaitForChild("HumanoidRootPart")
 end
 
@@ -99,7 +80,7 @@ local function lerp(a, b, t)
     return a + (b - a) * t
 end
 
--- Get smoothness value (faster tracking)
+-- Get smoothness value for Auto Reel (Legit)
 local function getSmoothnessValue()
     if smoothness == "Slow" then
         return 0.15
@@ -110,20 +91,31 @@ local function getSmoothnessValue()
     end
 end
 
+-- Get smoothness value for Auto Reel (Normal)
+local function getSmoothnessValueNormal()
+    if smoothness == "Slow" then
+        return 0.25
+    elseif smoothness == "Fast" then
+        return 0.9
+    else -- Medium
+        return 0.6
+    end
+end
+
 -- Auto Reel (Legit mode, continuous tracking)
 local function StartAutoReel()
-    if autoreel_running or normalmode_running then return end
+    if autoreel_running or normalmode_running or instantreel_running then return end
     autoreel_running = true
     task.defer(function()
         while autoreel do
-            local gui = player:FindFirstChild("PlayerGui")
+            local gui = LocalPlayer:FindFirstChild("PlayerGui")
             local reel = gui and gui:FindFirstChild("reel")
             while autoreel and gui and not reel do
                 reel = gui:FindFirstChild("reel")
                 task.wait(0.1)
             end
             if reel then
-                local char = player.Character
+                local char = LocalPlayer.Character
                 if char then
                     for _, tool in ipairs(char:GetChildren()) do
                         if tool:IsA("Tool") then
@@ -154,8 +146,6 @@ local function StartAutoReel()
                                 if not success then
                                     warn("Error in AutoReel: " .. err)
                                     autoreel = false
-                                    Settings.AutoReel = false
-                                    SaveSettings()
                                     return
                                 end
                                 task.wait(0.1)
@@ -174,18 +164,18 @@ end
 
 -- Auto Reel Normal (continuous tracking)
 local function StartAutoReelNormal()
-    if normalmode_running or autoreel_running then return end
+    if normalmode_running or autoreel_running or instantreel_running then return end
     normalmode_running = true
     task.defer(function()
         while normalmode do
-            local gui = player:FindFirstChild("PlayerGui")
+            local gui = LocalPlayer:FindFirstChild("PlayerGui")
             local reel = gui and gui:FindFirstChild("reel")
             while normalmode and gui and not reel do
                 reel = gui:FindFirstChild("reel")
                 task.wait(0.1)
             end
             if reel then
-                local char = player.Character
+                local char = LocalPlayer.Character
                 if char then
                     for _, tool in ipairs(char:GetChildren()) do
                         if tool:IsA("Tool") then
@@ -197,7 +187,7 @@ local function StartAutoReelNormal()
                                     if fish and playerbar then
                                         local currentX = playerbar.Position.X.Scale
                                         local currentY = playerbar.Position.Y.Scale
-                                        local lerpT = getSmoothnessValue()
+                                        local lerpT = getSmoothnessValueNormal()
                                         while normalmode and reel and reel.Parent and fish and playerbar and tool.Parent == char do
                                             local targetX = fish.Position.X.Scale + math.random(-0.01, 0.01)
                                             local targetY = fish.Position.Y.Scale + math.random(-0.01, 0.01)
@@ -216,8 +206,6 @@ local function StartAutoReelNormal()
                                 if not success then
                                     warn("Error in AutoReelNormal: " .. err)
                                     normalmode = false
-                                    Settings.NormalMode = false
-                                    SaveSettings()
                                     return
                                 end
                                 task.wait(0.1)
@@ -234,24 +222,32 @@ local function StartAutoReelNormal()
     end)
 end
 
--- Auto Cast (Every 3 Seconds)
+-- Auto Cast
 local function StartAutoCast()
     if autocast_running then return end
     autocast_running = true
     task.defer(function()
         while autocast do
             local success, err = pcall(function()
-                local char = player.Character
+                local char = LocalPlayer.Character
                 if char then
-                    local rod = char:FindFirstChild("Tryhard Rod")
-                    if rod and rod:FindFirstChild("events") and rod.events:FindFirstChild("castAsync") then
-                        local args = {
-                            [1] = 35.999999999999996,
-                            [2] = 1
-                        }
-                        rod.events.castAsync:InvokeServer(unpack(args))
-                    else
-                        warn("Tryhard Rod or castAsync event not found")
+                    for _, tool in ipairs(char:GetChildren()) do
+                        if tool:IsA("Tool") and tool:FindFirstChild("events") and tool.events:FindFirstChild("castAsync") then
+                            local gui = LocalPlayer:FindFirstChild("PlayerGui")
+                            local reel = gui and gui:FindFirstChild("reel")
+                            local bar = reel and reel:FindFirstChild("bar")
+                            local fish = bar and bar:FindFirstChild("fish")
+                            if not reel or not bar or not fish then
+                                task.wait(1) -- Wait 1 second after fish bar disappears
+                                local args = {
+                                    [1] = autoCastMode == "Max" and 100 or math.random(10, 100),
+                                    [2] = 1
+                                }
+                                tool.events.castAsync:InvokeServer(unpack(args))
+                            end
+                        else
+                            warn("No valid rod with castAsync event found")
+                        end
                     end
                 else
                     warn("Character not found")
@@ -260,14 +256,150 @@ local function StartAutoCast()
             if not success then
                 warn("Error in AutoCast: " .. err)
                 autocast = false
-                Settings.AutoCast = false
-                SaveSettings()
                 autocast_running = false
                 return
             end
-            task.wait(3 + math.random(0, 0.5)) -- รอ 3-3.5 วินาทีเพื่อเลียนแบบมนุษย์
+            task.wait(0.1)
         end
         autocast_running = false
+    end)
+end
+
+-- Auto Shake
+local function autoShake()
+    if ShakeMode == "Navigation" then
+        task.wait()
+        xpcall(function()
+            local shakeui = PlayerGui:FindFirstChild("shakeui")
+            if not shakeui then return end
+            local safezone = shakeui:FindFirstChild("safezone")
+            local button = safezone and safezone:FindFirstChild("button")
+            task.wait(0.2)
+            GuiService.SelectedObject = button
+            if GuiService.SelectedObject == button then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+            end
+            task.wait(0.1)
+            GuiService.SelectedObject = nil
+        end, function(err)
+            warn("Error in AutoShake (Navigation): " .. err)
+        end)
+    elseif ShakeMode == "Mouse" then
+        task.wait()
+        xpcall(function()
+            local shakeui = PlayerGui:FindFirstChild("shakeui")
+            if not shakeui then return end
+            local safezone = shakeui:FindFirstChild("safezone")
+            local button = safezone and safezone:FindFirstChild("button")
+            local pos = button.AbsolutePosition
+            local size = button.AbsoluteSize
+            VirtualInputManager:SendMouseButtonEvent(pos.X + size.X / 2, pos.Y + size.Y / 2, 0, true, LocalPlayer, 0)
+            VirtualInputManager:SendMouseButtonEvent(pos.X + size.X / 2, pos.Y + size.Y / 2, 0, false, LocalPlayer, 0)
+        end, function(err)
+            warn("Error in AutoShake (Mouse): " .. err)
+        end)
+    end
+end
+
+local function startAutoShake()
+    if autoShakeConnection or not autoShakeEnabled then return end
+    autoShakeConnection = RunService.RenderStepped:Connect(autoShake)
+end
+
+local function stopAutoShake()
+    if autoShakeConnection then
+        autoShakeConnection:Disconnect()
+        autoShakeConnection = nil
+    end
+end
+
+-- Auto Shake Triggers
+PlayerGui.DescendantAdded:Connect(function(descendant)
+    if autoShakeEnabled and descendant.Name == "button" and descendant.Parent and descendant.Parent.Name == "safezone" then
+        startAutoShake()
+    end
+end)
+
+PlayerGui.DescendantAdded:Connect(function(descendant)
+    if descendant.Name == "playerbar" and descendant.Parent and descendant.Parent.Name == "bar" then
+        stopAutoShake()
+    end
+end)
+
+if autoShakeEnabled and PlayerGui:FindFirstChild("shakeui") and PlayerGui.shakeui:FindFirstChild("safezone") and PlayerGui.shakeui.safezone:FindFirstChild("button") then
+    startAutoShake()
+end
+
+-- Instant Reel (for Instant Tab)
+local function StartInstantReel()
+    if instantreel_running or autoreel_running or normalmode_running then return end
+    instantreel_running = true
+    task.defer(function()
+        while instantreel do
+            local gui = LocalPlayer:FindFirstChild("PlayerGui")
+            local reel = gui and gui:FindFirstChild("reel")
+            while instantreel and gui and not reel do
+                reel = gui:FindFirstChild("reel")
+                task.wait(0.1)
+            end
+            if reel then
+                local char = LocalPlayer.Character
+                if char then
+                    for _, tool in ipairs(char:GetChildren()) do
+                        if tool:IsA("Tool") then
+                            while instantreel and reel and reel.Parent and tool.Parent == char do
+                                local success, err = pcall(function()
+                                    local bar = reel:FindFirstChild("bar")
+                                    local fish = bar and bar:FindFirstChild("fish")
+                                    local playerbar = bar and bar:FindFirstChild("playerbar")
+                                    if fish and playerbar then
+                                        -- Trigger Instant Reel after 4.5 seconds
+                                        task.spawn(function()
+                                            task.wait(4.5)
+                                            if instantreel and reel and reel.Parent and fish and playerbar and tool.Parent == char then
+                                                local args = {
+                                                    [1] = 100,
+                                                    [2] = instantReelMode == "Perfect" and true or false
+                                                }
+                                                print("Firing reelfinished with args:", args[1], args[2])
+                                                ReplicatedStorage.events.reelfinished:FireServer(unpack(args))
+                                            end
+                                        end)
+                                        local currentX = playerbar.Position.X.Scale
+                                        local currentY = playerbar.Position.Y.Scale
+                                        local lerpT = 0.4 -- Fixed smoothness for Instant Reel
+                                        while instantreel and reel and reel.Parent and fish and playerbar and tool.Parent == char do
+                                            local targetX = fish.Position.X.Scale + math.random(-0.005, 0.005)
+                                            local targetY = fish.Position.Y.Scale + math.random(-0.005, 0.005)
+                                            currentX = lerp(currentX, targetX, lerpT)
+                                            currentY = lerp(currentY, targetY, lerpT)
+                                            playerbar.Position = UDim2.new(currentX, 0, currentY, 0)
+                                            task.wait(0.01)
+                                            bar = reel:FindFirstChild("bar")
+                                            fish = bar and bar:FindFirstChild("fish")
+                                            playerbar = bar and bar:FindFirstChild("playerbar")
+                                        end
+                                    else
+                                        warn("Reel UI elements not found")
+                                    end
+                                end)
+                                if not success then
+                                    warn("Error in StartInstantReel: " .. err)
+                                    instantreel = false
+                                    return
+                                end
+                                task.wait(0.1)
+                            end
+                        end
+                    end
+                end
+            else
+                warn("Reel UI not found")
+            end
+            task.wait(0.1)
+        end
+        instantreel_running = false
     end)
 end
 
@@ -278,20 +410,17 @@ MainTab:AddToggle({
     Default = autoreel,
     Callback = function(state)
         autoreel = state
-        Settings.AutoReel = state
-        if state and normalmode then
+        if state and (normalmode or instantreel) then
             normalmode = false
-            Settings.NormalMode = false
+            instantreel = false
             normalmode_running = false
+            instantreel_running = false
         end
-        SaveSettings()
         if state then
             local success, err = pcall(StartAutoReel)
             if not success then
                 warn("Error in StartAutoReel: " .. err)
                 autoreel = false
-                Settings.AutoReel = false
-                SaveSettings()
             end
         else
             autoreel_running = false
@@ -306,20 +435,17 @@ MainTab:AddToggle({
     Default = normalmode,
     Callback = function(state)
         normalmode = state
-        Settings.NormalMode = state
-        if state and autoreel then
+        if state and (autoreel or instantreel) then
             autoreel = false
-            Settings.AutoReel = false
+            instantreel = false
             autoreel_running = false
+            instantreel_running = false
         end
-        SaveSettings()
         if state then
             local success, err = pcall(StartAutoReelNormal)
             if not success then
                 warn("Error in StartAutoReelNormal: " .. err)
                 normalmode = false
-                Settings.NormalMode = false
-                SaveSettings()
             end
         else
             normalmode_running = false
@@ -329,20 +455,16 @@ MainTab:AddToggle({
 
 -- Auto Cast Toggle
 MainTab:AddToggle({
-    Name = "Auto Cast (Every 3 Seconds)",
+    Name = "Auto Cast",
     Flag = "AutoCast",
     Default = autocast,
     Callback = function(state)
         autocast = state
-        Settings.AutoCast = state
-        SaveSettings()
         if state then
             local success, err = pcall(StartAutoCast)
             if not success then
                 warn("Error in StartAutoCast: " .. err)
                 autocast = false
-                Settings.AutoCast = false
-                SaveSettings()
             end
         else
             autocast_running = false
@@ -350,45 +472,4 @@ MainTab:AddToggle({
     end
 })
 
--- Smoothness Dropdown
-MainTab:AddDropdown({
-    Name = "Smoothness",
-    Options = {"Slow", "Medium", "Fast"},
-    Default = Settings.Smoothness or "Medium",
-    Callback = function(choice)
-        smoothness = choice
-        Settings.Smoothness = choice
-        SaveSettings()
-        if autoreel or normalmode then
-            autoreel_running = false
-            normalmode_running = false
-            local success, err
-            if autoreel then
-                success, err = pcall(StartAutoReel)
-            elseif normalmode then
-                success, err = pcall(StartAutoReelNormal)
-            end
-            if not success then
-                warn("Error restarting AutoReel: " .. err)
-                autoreel = false
-                normalmode = false
-                Settings.AutoReel = false
-                Settings.NormalMode = false
-                SaveSettings()
-            end
-        end
-    end
-})
-
--- Instant Reel Button
-MainTab:AddButton({
-    Name = "Instant Reel",
-    Callback = function()
-        local args = {
-            [1] = 100,
-            [2] = false
-        }
-        print("Firing reelfinished with args:", args[1], args[2])
-        game:GetService("ReplicatedStorage").events.reelfinished:FireServer(unpack(args))
-    end
-})
+-- Auto Cast Mode Dro
