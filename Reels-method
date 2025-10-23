@@ -37,12 +37,16 @@ Window:AddMinimizeButton({
 
 -- Create tabs
 local MainTab = Window:MakeTab({"Main", "rbxassetid://7733960981"})
-local InstantTab = Window:MakeTab({"Instant Tab", "rbxassetid://10709790202"})
+local InstantTab = Window:MakeTab({"Instant Tab", "rbxassetid://10734962600"})
+local MiscTab = Window:MakeTab({"Misc", "rbxassetid://10747376565"})
+local TeleportsTab = Window:MakeTab({"Teleports", "rbxassetid://10747373176"})
 Window:SelectTab(MainTab)
 
 -- Add section for Main Tab
 local MainSection = MainTab:AddSection({"Fisch Auto Reel"})
 local InstantSection = InstantTab:AddSection({"Instant Reel"})
+local MiscSection = MiscTab:AddSection({"Settings"})
+local TeleportsSection = TeleportsTab:AddSection({"Teleport Locations"})
 
 -- Initialize services
 local Players = game:GetService("Players")
@@ -58,7 +62,7 @@ local autoreel = false
 local normalmode = false
 local smoothness = "Medium"
 local autocast = false
-local autoCastMode = "Normal" -- New variable for Auto Cast mode
+local autoCastMode = "Normal"
 local autoreel_running = false
 local normalmode_running = false
 local autocast_running = false
@@ -68,6 +72,149 @@ local autoShakeConnection
 local instantreel = false
 local instantReelMode = "Normal"
 local instantreel_running = false
+local language = "English"
+local selectedTeleport = nil
+
+-- Teleport locations
+local teleportLocations = {
+    ["Abyssal Zenith - MAIN"] = Vector3.new(-13486.57, -11048.69, 147.35),
+    ["Acient Island - MAIN"] = Vector3.new(6068.83, 195.16, 287.13),
+    ["Altar - MAIN"] = Vector3.new(22.74, 159.01, -1037.92),
+    ["Atlantean Storm - MAIN"] = Vector3.new(-3593, 153, 512),
+    ["Atlantis - MAIN"] = Vector3.new(-4331, -603, 1822),
+    ["Blue Moon - MAIN"] = Vector3.new(2695, 131, 2586),
+    ["Brine Pool - AURORA TOTEM"] = Vector3.new(-1810, -136, -3280),
+    ["Brine Pool - MAIN"] = Vector3.new(-1795, -142, -3397),
+    ["Calm Zone - MAIN 1"] = Vector3.new(-4256.21, -11200.71, 1783.91),
+    ["Calm Zone - MAIN 2"] = Vector3.new(-4362.04, -11175.49, 3708.89),
+    ["Carrot Island - MAIN"] = Vector3.new(3725.78589, -1130.48267, -1069.81592),
+    ["Castaway - CAVE"] = Vector3.new(462, 203, -1959),
+    ["Castaway - MAIN"] = Vector3.new(397, 199, -1802),
+    ["Castaway - RED MARLIN"] = Vector3.new(528, 309, -2032),
+    ["Challenger's Deep - BLACK MARKET"] = Vector3.new(-978, -244, -2700),
+    ["Challenger's Deep - MAIN"] = Vector3.new(-1658, -214, -2843),
+    ["Crimson Cavern - MAIN"] = Vector3.new(-1073, -353, -4873),
+    ["Forsaken Shore - MAIN"] = Vector3.new(-2494.16, 133.25, 1558.86),
+    ["Grand Reef - MAIN"] = Vector3.new(-3576.43, 151.08, 523.13),
+    ["Keepers Altar - ALTAR"] = Vector3.new(1310.73328, -808.551941, -103.468826),
+    ["Moosewood - MAIN"] = Vector3.new(403.19, 134.00, 236.28),
+    ["Mushgrove Swamp - MAIN"] = Vector3.new(2449.24, 130.86, -667.88),
+    ["Northern Summit - CAVE"] = Vector3.new(20049.27, 512.40, 5428.28),
+    ["Northern Summit - GEM 1"] = Vector3.new(20130.38, 208.37, 5429.69),
+    ["Northern Summit - MAIN"] = Vector3.new(19550.66, 132.67, 5300.76),
+    ["Overgrowth Caves - CAVE"] = Vector3.new(20049.27, 512.40, 5428.28),
+    ["Overgrowth Caves - GEM 2"] = Vector3.new(19881.36, 448.09, 5559.87),
+    ["Overgrowth Caves - MAIN"] = Vector3.new(19835.89, 439.61, 5615.26),
+    ["Roslit Bay - MAIN"] = Vector3.new(-1465.14, 133.22, 679.52),
+    ["Roslit Bay - VOLCANO"] = Vector3.new(-1958.76, 192.48, 265.41),
+    ["SnowCap - MAIN"] = Vector3.new(2684.61, 152.58, 2392.01),
+    ["SunStone - CAVE"] = Vector3.new(-1146.59, 134.50, -1065.05),
+    ["SunStone - MAIN"] = Vector3.new(-928.98, 131.54, -1114.39),
+    ["SunStone - MERLIN"] = Vector3.new(-932.16, 223.78, -988.99),
+    ["Veil of the Forsaken - MAIN"] = Vector3.new(-4348.36, -11183.62, 7075.06),
+    ["Volcanic Vents - MAIN"] = Vector3.new(-3503.68, -2257.55, 3847.52)
+}
+
+-- Language translations
+local languageTranslations = {
+    ["English"] = {
+        mainTab = {
+            autoReel = "Auto Reel (Legit)",
+            autoReelNormal = "Auto Reel (Normal)",
+            autoCast = "Auto Cast",
+            autoCastMode = "Auto Cast Mode",
+            autoShake = "Auto Shake",
+            shakeMode = "Shake Mode",
+            smoothness = "Smoothness",
+            instantReelButton = "Instant Reel",
+            instantReelPerfectButton = "Instant Reel Perfect"
+        },
+        instantTab = {
+            instantReel = "Instant Reel",
+            instantReelMode = "Instant Reel Mode"
+        },
+        miscTab = {
+            language = "Language"
+        },
+        options = {
+            autoCastMode = {Normal = "Normal", Max = "Max"},
+            smoothness = {Slow = "Slow", Medium = "Medium", Fast = "Fast"},
+            instantReelMode = {Normal = "Normal", Perfect = "Perfect"},
+            shakeMode = {Navigation = "Navigation"},
+            language = {Thai = "ไทย", English = "English"}
+        }
+    },
+    ["ไทย"] = {
+        mainTab = {
+            autoReel = "ตามปลา(โหมดปกติ)",
+            autoReelNormal = "ตามปลา(โหมดปรับความเร็วได้)",
+            autoCast = "โยนเบ็ดออโต้",
+            autoCastMode = "เลือกโหมดโยน",
+            autoShake = "กดเขย่าปลาออโต้",
+            shakeMode = "ความเร็วตามปลา(โหมดปรับความเร็ว)",
+            smoothness = "ความเร็วตามปลา(โหมดปรับความเร็ว)",
+            instantReelButton = "ดึงปลาทันที",
+            instantReelPerfectButton = "ดึงปลาทันที(แบบติดเพอร์เฟคแคท)"
+        },
+        instantTab = {
+            instantReel = "ตามปลา แล้วดึงทันที",
+            instantReelMode = "โหมดดึงปลา"
+        },
+        miscTab = {
+            language = "เปลี่ยนภาษา"
+        },
+        options = {
+            autoCastMode = {Normal = "สุ่ม", Max = "เพอร์เฟค"},
+            smoothness = {Slow = "ช้า", Medium = "ปานกลาง", Fast = "เร็ว"},
+            instantReelMode = {Normal = "ไม่เพอร์เฟค", Perfect = "ติดเพอร์เฟค"},
+            shakeMode = {Navigation = "Navigation"},
+            language = {Thai = "ไทย", English = "English"}
+        }
+    }
+}
+
+-- Function to update language
+local function updateLanguage()
+    local trans = languageTranslations[language]
+    
+    -- Update Main Tab
+    for _, obj in pairs(MainTab.Objects) do
+        if obj.Type == "Toggle" then
+            if obj.Flag == "AutoReel" then obj:SetName(trans.mainTab.autoReel)
+            elseif obj.Flag == "NormalMode" then obj:SetName(trans.mainTab.autoReelNormal)
+            elseif obj.Flag == "AutoCast" then obj:SetName(trans.mainTab.autoCast)
+            elseif obj.Flag == "AutoShake" then obj:SetName(trans.mainTab.autoShake) end
+        elseif obj.Type == "Dropdown" then
+            if obj.Name == "Auto Cast Mode" or obj.Name == trans.mainTab.autoCastMode then obj:SetName(trans.mainTab.autoCastMode)
+            elseif obj.Name == "Shake Mode" or obj.Name == trans.mainTab.shakeMode then obj:SetName(trans.mainTab.shakeMode)
+            elseif obj.Name == "Smoothness" or obj.Name == trans.mainTab.smoothness then obj:SetName(trans.mainTab.smoothness) end
+            if obj.Name == trans.mainTab.autoCastMode then obj:SetOptions({trans.options.autoCastMode.Normal, trans.options.autoCastMode.Max})
+            elseif obj.Name == trans.mainTab.smoothness then obj:SetOptions({trans.options.smoothness.Slow, trans.options.smoothness.Medium, trans.options.smoothness.Fast})
+            elseif obj.Name == trans.mainTab.shakeMode then obj:SetOptions({trans.options.shakeMode.Navigation}) end
+        elseif obj.Type == "Button" then
+            if obj.Name == "Instant Reel" then obj:SetName(trans.mainTab.instantReelButton)
+            elseif obj.Name == "Instant Reel Perfect" then obj:SetName(trans.mainTab.instantReelPerfectButton) end
+        end
+    end
+    
+    -- Update Instant Tab
+    for _, obj in pairs(InstantTab.Objects) do
+        if obj.Type == "Toggle" then
+            if obj.Flag == "InstantReel" then obj:SetName(trans.instantTab.instantReel) end
+        elseif obj.Type == "Dropdown" then
+            if obj.Name == "Instant Reel Mode" or obj.Name == trans.instantTab.instantReelMode then obj:SetName(trans.instantTab.instantReelMode)
+            if obj.Name == trans.instantTab.instantReelMode then obj:SetOptions({trans.options.instantReelMode.Normal, trans.options.instantReelMode.Perfect}) end
+        end
+    end
+    
+    -- Update Misc Tab
+    for _, obj in pairs(MiscTab.Objects) do
+        if obj.Type == "Dropdown" then
+            if obj.Name == "Language" or obj.Name == trans.miscTab.language then obj:SetName(trans.miscTab.language)
+            if obj.Name == trans.miscTab.language then obj:SetOptions({trans.options.language.Thai, trans.options.language.English}) end
+        end
+    end
+end
 
 -- Get HumanoidRootPart
 local function GetHumanoidRootPart()
@@ -267,50 +414,40 @@ end
 
 -- Auto Shake
 local function autoShake()
+    if not autoShakeEnabled then return end
+    local shakeui = PlayerGui:FindFirstChild("shakeui")
+    if not shakeui then return end
+    local safezone = shakeui:FindFirstChild("safezone")
+    if not safezone then return end
+    local button = safezone:FindFirstChild("button")
+    if not button then return end
+
     if ShakeMode == "Navigation" then
-        task.wait()
-        xpcall(function()
-            local shakeui = PlayerGui:FindFirstChild("shakeui")
-            if not shakeui then return end
-            local safezone = shakeui:FindFirstChild("safezone")
-            local button = safezone and safezone:FindFirstChild("button")
-            task.wait(0.2)
+        task.wait(0.2)
+        if GuiService.SelectedObject ~= button then
             GuiService.SelectedObject = button
-            if GuiService.SelectedObject == button then
-                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
-                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
-            end
+        end
+        if GuiService.SelectedObject == button then
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
             task.wait(0.1)
-            GuiService.SelectedObject = nil
-        end, function(err)
-            warn("Error in AutoShake (Navigation): " .. err)
-        end)
-    elseif ShakeMode == "Mouse" then
-        task.wait()
-        xpcall(function()
-            local shakeui = PlayerGui:FindFirstChild("shakeui")
-            if not shakeui then return end
-            local safezone = shakeui:FindFirstChild("safezone")
-            local button = safezone and safezone:FindFirstChild("button")
-            local pos = button.AbsolutePosition
-            local size = button.AbsoluteSize
-            VirtualInputManager:SendMouseButtonEvent(pos.X + size.X / 2, pos.Y + size.Y / 2, 0, true, LocalPlayer, 0)
-            VirtualInputManager:SendMouseButtonEvent(pos.X + size.X / 2, pos.Y + size.Y / 2, 0, false, LocalPlayer, 0)
-        end, function(err)
-            warn("Error in AutoShake (Mouse): " .. err)
-        end)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+            GuiService.SelectedObject = nil -- Ensure SelectedObject is cleared
+        end
     end
 end
 
 local function startAutoShake()
     if autoShakeConnection or not autoShakeEnabled then return end
-    autoShakeConnection = RunService.RenderStepped:Connect(autoShake)
+    autoShakeConnection = RunService.RenderStepped:Connect(function()
+        autoShake()
+    end)
 end
 
 local function stopAutoShake()
     if autoShakeConnection then
         autoShakeConnection:Disconnect()
         autoShakeConnection = nil
+        GuiService.SelectedObject = nil -- Clear SelectedObject when stopping
     end
 end
 
@@ -403,9 +540,24 @@ local function StartInstantReel()
     end)
 end
 
+-- Teleport function
+local function teleportToLocation()
+    if selectedTeleport and teleportLocations[selectedTeleport] then
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(teleportLocations[selectedTeleport])
+            print("Teleported to " .. selectedTeleport)
+        else
+            warn("Character or HumanoidRootPart not found")
+        end
+    else
+        warn("No teleport location selected")
+    end
+end
+
 -- Auto Reel Toggle (Legit mode)
 MainTab:AddToggle({
-    Name = "Auto Reel (Legit)",
+    Name = languageTranslations[language].mainTab.autoReel,
     Flag = "AutoReel",
     Default = autoreel,
     Callback = function(state)
@@ -430,7 +582,7 @@ MainTab:AddToggle({
 
 -- Auto Reel Normal Toggle
 MainTab:AddToggle({
-    Name = "Auto Reel (Normal)",
+    Name = languageTranslations[language].mainTab.autoReelNormal,
     Flag = "NormalMode",
     Default = normalmode,
     Callback = function(state)
@@ -455,7 +607,7 @@ MainTab:AddToggle({
 
 -- Auto Cast Toggle
 MainTab:AddToggle({
-    Name = "Auto Cast",
+    Name = languageTranslations[language].mainTab.autoCast,
     Flag = "AutoCast",
     Default = autocast,
     Callback = function(state)
@@ -474,8 +626,8 @@ MainTab:AddToggle({
 
 -- Auto Cast Mode Dropdown
 MainTab:AddDropdown({
-    Name = "Auto Cast Mode",
-    Options = {"Normal", "Max"},
+    Name = languageTranslations[language].mainTab.autoCastMode,
+    Options = {languageTranslations[language].options.autoCastMode.Normal, languageTranslations[language].options.autoCastMode.Max},
     Default = autoCastMode,
     Callback = function(choice)
         autoCastMode = choice
@@ -484,7 +636,7 @@ MainTab:AddDropdown({
 
 -- Auto Shake Toggle
 MainTab:AddToggle({
-    Name = "Auto Shake",
+    Name = languageTranslations[language].mainTab.autoShake,
     Flag = "AutoShake",
     Default = autoShakeEnabled,
     Callback = function(state)
@@ -501,10 +653,10 @@ MainTab:AddToggle({
     end
 })
 
--- Shake Mode Dropdown
+-- Shake Mode Dropdown (Navigation only)
 MainTab:AddDropdown({
-    Name = "Shake Mode",
-    Options = {"Navigation", "Mouse"},
+    Name = languageTranslations[language].mainTab.shakeMode,
+    Options = {languageTranslations[language].options.shakeMode.Navigation},
     Default = ShakeMode,
     Callback = function(choice)
         ShakeMode = choice
@@ -521,8 +673,8 @@ MainTab:AddDropdown({
 
 -- Smoothness Dropdown
 MainTab:AddDropdown({
-    Name = "Smoothness",
-    Options = {"Slow", "Medium", "Fast"},
+    Name = languageTranslations[language].mainTab.smoothness,
+    Options = {languageTranslations[language].options.smoothness.Slow, languageTranslations[language].options.smoothness.Medium, languageTranslations[language].options.smoothness.Fast},
     Default = smoothness,
     Callback = function(choice)
         smoothness = choice
@@ -544,9 +696,35 @@ MainTab:AddDropdown({
     end
 })
 
+-- Instant Reel Button
+MainTab:AddButton({
+    Name = languageTranslations[language].mainTab.instantReelButton,
+    Callback = function()
+        local args = {
+            [1] = 100,
+            [2] = false
+        }
+        print("Firing reelfinished with args:", args[1], args[2])
+        ReplicatedStorage.events.reelfinished:FireServer(unpack(args))
+    end
+})
+
+-- Instant Reel Perfect Button
+MainTab:AddButton({
+    Name = languageTranslations[language].mainTab.instantReelPerfectButton,
+    Callback = function()
+        local args = {
+            [1] = 100,
+            [2] = true
+        }
+        print("Firing reelfinished with args:", args[1], args[2])
+        ReplicatedStorage.events.reelfinished:FireServer(unpack(args))
+    end
+})
+
 -- Instant Reel Toggle (Instant Tab)
 InstantTab:AddToggle({
-    Name = "Instant Reel",
+    Name = languageTranslations[language].instantTab.instantReel,
     Flag = "InstantReel",
     Default = instantreel,
     Callback = function(state)
@@ -571,36 +749,42 @@ InstantTab:AddToggle({
 
 -- Instant Reel Mode Dropdown
 InstantTab:AddDropdown({
-    Name = "Instant Reel Mode",
-    Options = {"Normal", "Perfect"},
+    Name = languageTranslations[language].instantTab.instantReelMode,
+    Options = {languageTranslations[language].options.instantReelMode.Normal, languageTranslations[language].options.instantReelMode.Perfect},
     Default = instantReelMode,
     Callback = function(choice)
         instantReelMode = choice
     end
 })
 
--- Instant Reel Button
-MainTab:AddButton({
-    Name = "Instant Reel",
-    Callback = function()
-        local args = {
-            [1] = 100,
-            [2] = false
-        }
-        print("Firing reelfinished with args:", args[1], args[2])
-        ReplicatedStorage.events.reelfinished:FireServer(unpack(args))
+-- Language Dropdown (Misc Tab)
+MiscTab:AddDropdown({
+    Name = languageTranslations[language].miscTab.language,
+    Options = {languageTranslations[language].options.language.Thai, languageTranslations[language].options.language.English},
+    Default = language,
+    Callback = function(choice)
+        language = choice
+        updateLanguage()
     end
 })
 
--- Instant Reel Perfect Button
-MainTab:AddButton({
-    Name = "Instant Reel Perfect",
-    Callback = function()
-        local args = {
-            [1] = 100,
-            [2] = true
-        }
-        print("Firing reelfinished with args:", args[1], args[2])
-        ReplicatedStorage.events.reelfinished:FireServer(unpack(args))
+-- Teleport Location Dropdown
+TeleportsTab:AddDropdown({
+    Name = "Teleport Location",
+    Options = table.keys(teleportLocations),
+    Default = nil,
+    Callback = function(choice)
+        selectedTeleport = choice
     end
 })
+
+-- Teleport Button
+TeleportsTab:AddButton({
+    Name = "Teleport",
+    Callback = function()
+        teleportToLocation()
+    end
+})
+
+-- Initial language update
+updateLanguage()
