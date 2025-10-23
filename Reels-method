@@ -37,14 +37,12 @@ Window:AddMinimizeButton({
 
 -- Create tabs
 local MainTab = Window:MakeTab({"Main", "rbxassetid://7733960981"})
-local InstantTab = Window:MakeTab({"Instant Tab", "rbxassetid://10734934585"})
-local MiscTab = Window:MakeTab({"Misc", "rbxassetid://10747373426"})
+local InstantTab = Window:MakeTab({"Instant Tab", "rbxassetid://7733960981"})
 Window:SelectTab(MainTab)
 
 -- Add section for Main Tab
 local MainSection = MainTab:AddSection({"Fisch Auto Reel"})
 local InstantSection = InstantTab:AddSection({"Instant Reel"})
-local MiscSection = MiscTab:AddSection({"Settings"})
 
 -- Initialize services
 local Players = game:GetService("Players")
@@ -60,7 +58,7 @@ local autoreel = false
 local normalmode = false
 local smoothness = "Medium"
 local autocast = false
-local autoCastMode = "Normal"
+local autoCastMode = "Normal" -- New variable for Auto Cast mode
 local autoreel_running = false
 local normalmode_running = false
 local autocast_running = false
@@ -70,108 +68,6 @@ local autoShakeConnection
 local instantreel = false
 local instantReelMode = "Normal"
 local instantreel_running = false
-local language = "English"
-
--- Language translations
-local languageTranslations = {
-    ["English"] = {
-        mainTab = {
-            autoReel = "Auto Reel (Legit)",
-            autoReelNormal = "Auto Reel (Normal)",
-            autoCast = "Auto Cast",
-            autoCastMode = "Auto Cast Mode",
-            autoShake = "Auto Shake",
-            shakeMode = "Shake Mode",
-            smoothness = "Smoothness",
-            instantReelButton = "Instant Reel",
-            instantReelPerfectButton = "Instant Reel Perfect"
-        },
-        instantTab = {
-            instantReel = "Instant Reel",
-            instantReelMode = "Instant Reel Mode"
-        },
-        miscTab = {
-            language = "Language"
-        },
-        options = {
-            autoCastMode = {Normal = "Normal", Max = "Max"},
-            smoothness = {Slow = "Slow", Medium = "Medium", Fast = "Fast"},
-            instantReelMode = {Normal = "Normal", Perfect = "Perfect"},
-            shakeMode = {Navigation = "Navigation"},
-            language = {Thai = "ไทย", English = "English"}
-        }
-    },
-    ["ไทย"] = {
-        mainTab = {
-            autoReel = "ตามปลา(โหมดปกติ)",
-            autoReelNormal = "ตามปลา(โหมดปรับความเร็วได้)",
-            autoCast = "โยนเบ็ดออโต้",
-            autoCastMode = "เลือกโหมดโยน",
-            autoShake = "กดเขย่าปลาออโต้",
-            shakeMode = "ความเร็วตามปลา(โหมดปรับความเร็ว)",
-            smoothness = "ความเร็วตามปลา(โหมดปรับความเร็ว)",
-            instantReelButton = "ดึงปลาทันที",
-            instantReelPerfectButton = "ดึงปลาทันที(แบบติดเพอร์เฟคแคท)"
-        },
-        instantTab = {
-            instantReel = "ตามปลา แล้วดึงทันที",
-            instantReelMode = "โหมดดึงปลา"
-        },
-        miscTab = {
-            language = "เปลี่ยนภาษา"
-        },
-        options = {
-            autoCastMode = {Normal = "สุ่ม", Max = "เพอร์เฟค"},
-            smoothness = {Slow = "ช้า", Medium = "ปานกลาง", Fast = "เร็ว"},
-            instantReelMode = {Normal = "ไม่เพอร์เฟค", Perfect = "ติดเพอร์เฟค"},
-            shakeMode = {Navigation = "Navigation"},
-            language = {Thai = "ไทย", English = "English"}
-        }
-    }
-}
-
--- Function to update language
-local function updateLanguage()
-    local trans = languageTranslations[language]
-    
-    -- Update Main Tab
-    for _, obj in pairs(MainTab.Objects) do
-        if obj.Type == "Toggle" then
-            if obj.Flag == "AutoReel" then obj:SetName(trans.mainTab.autoReel)
-            elseif obj.Flag == "NormalMode" then obj:SetName(trans.mainTab.autoReelNormal)
-            elseif obj.Flag == "AutoCast" then obj:SetName(trans.mainTab.autoCast)
-            elseif obj.Flag == "AutoShake" then obj:SetName(trans.mainTab.autoShake) end
-        elseif obj.Type == "Dropdown" then
-            if obj.Name == "Auto Cast Mode" or obj.Name == trans.mainTab.autoCastMode then obj:SetName(trans.mainTab.autoCastMode)
-            elseif obj.Name == "Shake Mode" or obj.Name == trans.mainTab.shakeMode then obj:SetName(trans.mainTab.shakeMode)
-            elseif obj.Name == "Smoothness" or obj.Name == trans.mainTab.smoothness then obj:SetName(trans.mainTab.smoothness) end
-            if obj.Name == trans.mainTab.autoCastMode then obj:SetOptions({trans.options.autoCastMode.Normal, trans.options.autoCastMode.Max})
-            elseif obj.Name == trans.mainTab.smoothness then obj:SetOptions({trans.options.smoothness.Slow, trans.options.smoothness.Medium, trans.options.smoothness.Fast})
-            elseif obj.Name == trans.mainTab.shakeMode then obj:SetOptions({trans.options.shakeMode.Navigation}) end
-        elseif obj.Type == "Button" then
-            if obj.Name == "Instant Reel" then obj:SetName(trans.mainTab.instantReelButton)
-            elseif obj.Name == "Instant Reel Perfect" then obj:SetName(trans.mainTab.instantReelPerfectButton) end
-        end
-    end
-    
-    -- Update Instant Tab
-    for _, obj in pairs(InstantTab.Objects) do
-        if obj.Type == "Toggle" then
-            if obj.Flag == "InstantReel" then obj:SetName(trans.instantTab.instantReel) end
-        elseif obj.Type == "Dropdown" then
-            if obj.Name == "Instant Reel Mode" or obj.Name == trans.instantTab.instantReelMode then obj:SetName(trans.instantTab.instantReelMode)
-            if obj.Name == trans.instantTab.instantReelMode then obj:SetOptions({trans.options.instantReelMode.Normal, trans.options.instantReelMode.Perfect}) end
-        end
-    end
-    
-    -- Update Misc Tab
-    for _, obj in pairs(MiscTab.Objects) do
-        if obj.Type == "Dropdown" then
-            if obj.Name == "Language" or obj.Name == trans.miscTab.language then obj:SetName(trans.miscTab.language)
-            if obj.Name == trans.miscTab.language then obj:SetOptions({trans.options.language.Thai, trans.options.language.English}) end
-        end
-    end
-end
 
 -- Get HumanoidRootPart
 local function GetHumanoidRootPart()
@@ -371,40 +267,50 @@ end
 
 -- Auto Shake
 local function autoShake()
-    if not autoShakeEnabled then return end
-    local shakeui = PlayerGui:FindFirstChild("shakeui")
-    if not shakeui then return end
-    local safezone = shakeui:FindFirstChild("safezone")
-    if not safezone then return end
-    local button = safezone:FindFirstChild("button")
-    if not button then return end
-
     if ShakeMode == "Navigation" then
-        task.wait(0.2)
-        if GuiService.SelectedObject ~= button then
+        task.wait()
+        xpcall(function()
+            local shakeui = PlayerGui:FindFirstChild("shakeui")
+            if not shakeui then return end
+            local safezone = shakeui:FindFirstChild("safezone")
+            local button = safezone and safezone:FindFirstChild("button")
+            task.wait(0.2)
             GuiService.SelectedObject = button
-        end
-        if GuiService.SelectedObject == button then
-            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+            if GuiService.SelectedObject == button then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+            end
             task.wait(0.1)
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
-            GuiService.SelectedObject = nil -- Ensure SelectedObject is cleared
-        end
+            GuiService.SelectedObject = nil
+        end, function(err)
+            warn("Error in AutoShake (Navigation): " .. err)
+        end)
+    elseif ShakeMode == "Mouse" then
+        task.wait()
+        xpcall(function()
+            local shakeui = PlayerGui:FindFirstChild("shakeui")
+            if not shakeui then return end
+            local safezone = shakeui:FindFirstChild("safezone")
+            local button = safezone and safezone:FindFirstChild("button")
+            local pos = button.AbsolutePosition
+            local size = button.AbsoluteSize
+            VirtualInputManager:SendMouseButtonEvent(pos.X + size.X / 2, pos.Y + size.Y / 2, 0, true, LocalPlayer, 0)
+            VirtualInputManager:SendMouseButtonEvent(pos.X + size.X / 2, pos.Y + size.Y / 2, 0, false, LocalPlayer, 0)
+        end, function(err)
+            warn("Error in AutoShake (Mouse): " .. err)
+        end)
     end
 end
 
 local function startAutoShake()
     if autoShakeConnection or not autoShakeEnabled then return end
-    autoShakeConnection = RunService.RenderStepped:Connect(function()
-        autoShake()
-    end)
+    autoShakeConnection = RunService.RenderStepped:Connect(autoShake)
 end
 
 local function stopAutoShake()
     if autoShakeConnection then
         autoShakeConnection:Disconnect()
         autoShakeConnection = nil
-        GuiService.SelectedObject = nil -- Clear SelectedObject when stopping
     end
 end
 
@@ -499,7 +405,7 @@ end
 
 -- Auto Reel Toggle (Legit mode)
 MainTab:AddToggle({
-    Name = languageTranslations[language].mainTab.autoReel,
+    Name = "Auto Reel (Legit)",
     Flag = "AutoReel",
     Default = autoreel,
     Callback = function(state)
@@ -524,7 +430,7 @@ MainTab:AddToggle({
 
 -- Auto Reel Normal Toggle
 MainTab:AddToggle({
-    Name = languageTranslations[language].mainTab.autoReelNormal,
+    Name = "Auto Reel (Normal)",
     Flag = "NormalMode",
     Default = normalmode,
     Callback = function(state)
@@ -549,7 +455,7 @@ MainTab:AddToggle({
 
 -- Auto Cast Toggle
 MainTab:AddToggle({
-    Name = languageTranslations[language].mainTab.autoCast,
+    Name = "Auto Cast",
     Flag = "AutoCast",
     Default = autocast,
     Callback = function(state)
@@ -568,8 +474,8 @@ MainTab:AddToggle({
 
 -- Auto Cast Mode Dropdown
 MainTab:AddDropdown({
-    Name = languageTranslations[language].mainTab.autoCastMode,
-    Options = {languageTranslations[language].options.autoCastMode.Normal, languageTranslations[language].options.autoCastMode.Max},
+    Name = "Auto Cast Mode",
+    Options = {"Normal", "Max"},
     Default = autoCastMode,
     Callback = function(choice)
         autoCastMode = choice
@@ -578,7 +484,7 @@ MainTab:AddDropdown({
 
 -- Auto Shake Toggle
 MainTab:AddToggle({
-    Name = languageTranslations[language].mainTab.autoShake,
+    Name = "Auto Shake",
     Flag = "AutoShake",
     Default = autoShakeEnabled,
     Callback = function(state)
@@ -595,10 +501,10 @@ MainTab:AddToggle({
     end
 })
 
--- Shake Mode Dropdown (Navigation only)
+-- Shake Mode Dropdown
 MainTab:AddDropdown({
-    Name = languageTranslations[language].mainTab.shakeMode,
-    Options = {languageTranslations[language].options.shakeMode.Navigation},
+    Name = "Shake Mode",
+    Options = {"Navigation", "Mouse"},
     Default = ShakeMode,
     Callback = function(choice)
         ShakeMode = choice
@@ -615,8 +521,8 @@ MainTab:AddDropdown({
 
 -- Smoothness Dropdown
 MainTab:AddDropdown({
-    Name = languageTranslations[language].mainTab.smoothness,
-    Options = {languageTranslations[language].options.smoothness.Slow, languageTranslations[language].options.smoothness.Medium, languageTranslations[language].options.smoothness.Fast},
+    Name = "Smoothness",
+    Options = {"Slow", "Medium", "Fast"},
     Default = smoothness,
     Callback = function(choice)
         smoothness = choice
@@ -638,35 +544,9 @@ MainTab:AddDropdown({
     end
 })
 
--- Instant Reel Button
-MainTab:AddButton({
-    Name = languageTranslations[language].mainTab.instantReelButton,
-    Callback = function()
-        local args = {
-            [1] = 100,
-            [2] = false
-        }
-        print("Firing reelfinished with args:", args[1], args[2])
-        ReplicatedStorage.events.reelfinished:FireServer(unpack(args))
-    end
-})
-
--- Instant Reel Perfect Button
-MainTab:AddButton({
-    Name = languageTranslations[language].mainTab.instantReelPerfectButton,
-    Callback = function()
-        local args = {
-            [1] = 100,
-            [2] = true
-        }
-        print("Firing reelfinished with args:", args[1], args[2])
-        ReplicatedStorage.events.reelfinished:FireServer(unpack(args))
-    end
-})
-
 -- Instant Reel Toggle (Instant Tab)
 InstantTab:AddToggle({
-    Name = languageTranslations[language].instantTab.instantReel,
+    Name = "Instant Reel",
     Flag = "InstantReel",
     Default = instantreel,
     Callback = function(state)
@@ -691,24 +571,36 @@ InstantTab:AddToggle({
 
 -- Instant Reel Mode Dropdown
 InstantTab:AddDropdown({
-    Name = languageTranslations[language].instantTab.instantReelMode,
-    Options = {languageTranslations[language].options.instantReelMode.Normal, languageTranslations[language].options.instantReelMode.Perfect},
+    Name = "Instant Reel Mode",
+    Options = {"Normal", "Perfect"},
     Default = instantReelMode,
     Callback = function(choice)
         instantReelMode = choice
     end
 })
 
--- Language Dropdown (Misc Tab)
-MiscTab:AddDropdown({
-    Name = languageTranslations[language].miscTab.language,
-    Options = {languageTranslations[language].options.language.Thai, languageTranslations[language].options.language.English},
-    Default = language,
-    Callback = function(choice)
-        language = choice
-        updateLanguage()
+-- Instant Reel Button
+MainTab:AddButton({
+    Name = "Instant Reel",
+    Callback = function()
+        local args = {
+            [1] = 100,
+            [2] = false
+        }
+        print("Firing reelfinished with args:", args[1], args[2])
+        ReplicatedStorage.events.reelfinished:FireServer(unpack(args))
     end
 })
 
--- Initial language update
-updateLanguage()
+-- Instant Reel Perfect Button
+MainTab:AddButton({
+    Name = "Instant Reel Perfect",
+    Callback = function()
+        local args = {
+            [1] = 100,
+            [2] = true
+        }
+        print("Firing reelfinished with args:", args[1], args[2])
+        ReplicatedStorage.events.reelfinished:FireServer(unpack(args))
+    end
+})
