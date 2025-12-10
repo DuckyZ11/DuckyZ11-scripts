@@ -1,62 +1,22 @@
-Boss redzlib = loadstring(game:HttpGet("https://gist.githubusercontent.com/MjContiga1/54c07e52fc2aab8873b68d91a71d11c6/raw/fb4f1d6a7c89465f3 b39bc00eeff09af24b88f20/Redz%20hub.lua"))()
+local redzlib = loadstring(game:HttpGet("https://gist.githubusercontent.com/MjContiga1/54c07e52fc2aab8873b68d91a71d11c6/raw/fb4f1d6a7c89465f3b39bc00eeff09af24b88f20/Redz%20hub.lua"))()
 
-local Window = redzlib:MakeWindow({
-    Title = "โร้คพีช สคริปพม่าๆ",
-    SubTitle = "ใช้ไปอย่าบ่น",
-    SaveFolder = "SorcererBossFarm"
-})
+if not redzlib then
+    return
+end
 
-Window:AddMinimizeButton({
-    Button = { Image = "rbxassetid://118386424925922", BackgroundTransparency = 0, Size = UDim2.new(0,40,0,40) },
-    Corner = { CornerRadius = UDim.new(0,10) },
-    Position = UDim2.new(0,10,0,10)
-})
-
-local Tab = Window:MakeTab({"Boss Farm", "rbxassetid://7733960981"})
-
+-- Global variables
 _G.AutoTPBoss = false
 _G.AutoM1Boss = false
 _G.Noclip = false
 _G.SelectedBoss = nil
+_G.SelectedWeapon = nil
+-- RemoteEventName ถูกแทนที่ด้วยการเรียก Remotes.Serverside โดยตรง
+-- local RemoteEventName = "AttackEvent" 
 
--- Noclip
-spawn(function()
-    while task.wait(0.1) do
-        if _G.Noclip and game.Players.LocalPlayer.Character then
-            for _, part in game.Players.LocalPlayer.Character:GetDescendants() do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
-            end
-            game.Players.LocalPlayer.Character.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
-            game.Players.LocalPlayer.Character.Humanoid:ChangeState(11)
-        end
-    end
-end)
-
--- Weapon Dropdown
-local WeaponDrop
-local function UpdateWeapons()
-    local w = {}
-    for _, t in game.Players.LocalPlayer.Backpack:GetChildren() do
-        if t:IsA("Tool") then table.insert(w, t.Name) end
-    end
-    if #w == 0 then table.insert(w, "ไม่มีอาวุธ") end
-    if not WeaponDrop then
-        WeaponDrop = Tab:AddDropdown({Name="เลือกอาวุธ", Options=w, Default=w[1], Callback=function(v) _G.SelectedWeapon = v ~= "ไม่มีอาวุธ" and v or nil end})
-    else
-        WeaponDrop:Refresh(w, w[1])
-        _G.SelectedWeapon = w[1]
-    end
-    UpdateWeapons()
-    spawn(function() while task.wait(3) do UpdateWeapons() end end)
-end
-
--- Boss mapping (path จริง ๆ ในเกม)
 local BossPaths = {
     ["Yuta"] = "Jujutsu Highschool.Boss.Yuta",
     ["Sukuna"] = "Throne Isle.Boss.Sukuna",
-    ["Gojo"] = "Throne Isle.BBoss.Gojo",
+    ["Gojo"] = "Throne Isle.Boss.Gojo",
     ["David"] = "Throne Isle.Boss.David",
     ["Akaza"] = "Throne Isle.Boss.Akaza",
     ["Tanjiro"] = "Forge Isle.Boss.Tanjiro",
@@ -66,6 +26,121 @@ local BossPaths = {
     ["Mihawk"] = "Glacier Isle.Mihawk.Mihawk",
     ["Sung Jin Woo"] = "Rogue Town [Backside].Boss.Sung Jin Woo"
 }
+
+-- UI Setup
+local Window = redzlib:MakeWindow({
+    Title = "โร้คพีช สคริปพม่าๆ",
+    SubTitle = "รุ่นเกพม่า56",
+    SaveFolder = "SorcererBossFarm"
+})
+
+Window:AddMinimizeButton({
+    Button = { Image = "rbxassetid://139438145143663", BackgroundTransparency = 0 },
+    Corner = { CornerRadius = UDim.new(0, 10) },
+})
+
+local Tab = Window:MakeTab({"Boss Farm", "rbxassetid://7733960981"})
+
+Window:SelectTab(Tab)
+
+--------------------------------------------------------------------------------
+-- CORE LOOPS (Noclip, Auto Equip)
+--------------------------------------------------------------------------------
+
+-- Noclip Logic
+spawn(function()
+    while task.wait(0.1) do
+        if _G.Noclip then
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid") then
+                for _, part in char:GetDescendants() do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+                char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStand, true) 
+                char.Humanoid:ChangeState(Enum.HumanoidStateType.PlatformStand)
+                char.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
+            end
+        end
+    end
+end)
+
+-- Auto Equip Logic
+spawn(function()
+    local player = game.Players.LocalPlayer
+    while task.wait(0.5) do
+        if (_G.AutoTPBoss or _G.AutoM1Boss) and _G.SelectedWeapon then
+            local char = player.Character
+            if char and char:FindFirstChildOfClass("Humanoid") then
+                local tool = player.Backpack:FindFirstChild(_G.SelectedWeapon)
+                if tool and tool.Parent == player.Backpack then
+                    char.Humanoid:EquipTool(tool)
+                end
+            end
+        end
+    end
+end)
+
+--------------------------------------------------------------------------------
+-- BOSS FARM TAB UI & LOGIC
+--------------------------------------------------------------------------------
+
+Tab:AddSection({"ตั้งค่าบอส"})
+
+-- Weapon Dropdown Logic
+local WeaponDrop
+local function UpdateWeapons()
+    local w = {}
+    local player = game.Players.LocalPlayer
+    
+    for _, t in player.Backpack:GetChildren() do
+        if t:IsA("Tool") then table.insert(w, t.Name) end
+    end
+    if player.Character then
+        local equipped = player.Character:FindFirstChildOfClass("Tool")
+        if equipped and equipped.Parent == player.Character then
+            table.insert(w, equipped.Name)
+        end
+    end
+    
+    local seen = {}
+    local unique_w = {}
+    for _, val in ipairs(w) do
+        if not seen[val] then
+            unique_w[#unique_w + 1] = val
+            seen[val] = true
+        end
+    end
+
+    if #unique_w == 0 then table.insert(unique_w, "ไม่มีอาวุธ") end
+    
+    if not WeaponDrop then
+        WeaponDrop = Tab:AddDropdown({
+            Name="เลือกอาวุธ", 
+            Options=unique_w, 
+            Default=unique_w[1], 
+            Callback=function(v) 
+                _G.SelectedWeapon = v ~= "ไม่มีอาวุธ" and v or nil 
+            end
+        })
+        _G.SelectedWeapon = unique_w[1] ~= "ไม่มีอาวุธ" and unique_w[1] or nil
+    else
+        WeaponDrop:Refresh(unique_w, _G.SelectedWeapon or unique_w[1])
+        local currentSelection = WeaponDrop:Get()
+        if not table.find(unique_w, currentSelection) and currentSelection ~= "ไม่มีอาวุธ" then
+            _G.SelectedWeapon = unique_w[1] ~= "ไม่มีอาวุธ" and unique_w[1] or nil
+        end
+    end
+end
+
+-- Loop สำหรับอัปเดตอาวุธ
+spawn(function() 
+    UpdateWeapons()
+    while task.wait(3) do 
+        UpdateWeapons() 
+    end 
+end)
 
 -- Boss Dropdown
 Tab:AddDropdown({
@@ -80,59 +155,74 @@ Tab:AddToggle({Name = "Noclip (จำเป็น)", Default = true, Callback = 
 
 -- Auto TP Boss
 Tab:AddToggle({
-    Name = "วาปไปตีบอสออโต้",
+    Name = "ออโต้ฟามบอส",
     Default = false,
     Callback = function(state)
         _G.AutoTPBoss = state
-        spawn(function()
-            while _G.AutoTPBoss do
-                task.wait()
-                pcall(function()
-                    local path = BossPaths[_G.SelectedBoss]
-                    if not path then return end
+        if state then
+            spawn(function()
+                local player = game.Players.LocalPlayer
+                while _G.AutoTPBoss do
+                    task.wait(0.1)
+                    pcall(function()
+                        local char = player.Character
+                        if not _G.SelectedBoss or not char or not char:FindFirstChild("HumanoidRootPart") then return end
 
-                    local parts = string.split(path, ".")
-                    local current = workspace.Main.Characters
-                    local bossModel = nil
+                        local path = BossPaths[_G.SelectedBoss]
+                        local current = workspace.Main.Characters
+                        local bossModel = nil
 
-                    for _, name in parts
-                        current = current:FindFirstChild(name)
-                        if not current then break end
-                        bossModel = current
-                    end
+                        for _, name in ipairs(string.split(path, ".")) do
+                            current = current:FindFirstChild(name)
+                            if not current then break end
+                            bossModel = current
+                        end
 
-                    if bossModel and bossModel:FindFirstChild("HumanoidRootPart") and bossModel:FindFirstChild("Humanoid") and bossModel.Humanoid.Health > 0 then
-                        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = bossModel.HumanoidRootPart.CFrame * CFrame.new(0, -10, 18)
-                    end
-                end)
-            end
-        end)
+                        if bossModel and bossModel:FindFirstChild("HumanoidRootPart") and bossModel:FindFirstChildOfClass("Humanoid") and bossModel.Humanoid.Health > 0 then
+                            char.HumanoidRootPart.CFrame = bossModel.HumanoidRootPart.CFrame * CFrame.new(0, 0, 16)
+                        end
+                    end)
+                end
+            end)
+        end
     end
 })
 
--- Auto M1 Boss
+-- Auto M1 Boss (แก้ไขให้ใช้ Remote Event ที่ถูกต้อง)
 Tab:AddToggle({
-    Name = "ตีรัวๆ",
+    Name = "ตีรัว",
     Default = false,
-    Callback = FireServer("Server", "Sword", "M1s", _G.SelectedWeapon, 4)
+    Callback = function(state)
+        _G.AutoM1Boss = state
+        if state then
+            spawn(function()
+                local remote = game:GetService("ReplicatedStorage").Remotes:FindFirstChild("Serverside")
+                
+                if not remote then 
+                    -- ถ้าหา Remote ไม่เจอ จะหยุดทำงานทันที
+                    warn("Error: Remotes.Serverside not found!")
+                    _G.AutoM1Boss = false 
+                    return 
+                end
+
+                while _G.AutoM1Boss do
+                    task.wait(0.01)
+                    pcall(function()
+                        if not _G.SelectedWeapon then return end
+                        
+                        -- โครงสร้าง args ถูกแปลงมาให้ใช้ตัวแปร _G.SelectedWeapon
+                        local args = {
+                            [1] = "Server",
+                            [2] = "Sword",
+                            [3] = "M1s",
+                            [4] = _G.SelectedWeapon, -- ใช้ชื่ออาวุธที่เลือก
+                            [5] = 4
+                        }
+
+                        remote:FireServer(unpack(args))
+                    end)
+                end
+            end)
         end
     end
 })
-
--- Auto Equip
-spawn(function()
-    while task.wait(0.5) do
-        if (_G.AutoTPBoss or _G.AutoM1Boss) and _G.SelectedWeapon then
-            local tool = game.Players.LocalPlayer.Backpack:FindFirstChild(_G.SelectedWeapon)
-            if tool and game.Players.LocalPlayer.Character then
-                game.Players.LocalPlayer.Character.Humanoid:EquipTool(tool)
-            end
-        end
-    end
-end)
-
-Tab:AddLabel("ทุ่งฝ้ายอันอบอุ่น Noclipbelยรักและตีด้วยแส้")
-Tab:AddLabel("เปิด Noclip+M1+เลือกบอส ละตีจบไอ้พม่า")
-Tab:AddLabel("Mix Na Hee Nigga 56")
-
-UpdateWeapons()
