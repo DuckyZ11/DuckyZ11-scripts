@@ -1,4 +1,4 @@
-local redzlib = loadstring(game:HttpGet("https://gist.githubusercontent.com/MjContiga1/54c07e52fc2aab8873b68d91a71d11c6/raw/fb4f1d6a7c89465f3 b39bc00eeff09af24b88f20/Redz%20hub.lua"))()
+Boss redzlib = loadstring(game:HttpGet("https://gist.githubusercontent.com/MjContiga1/54c07e52fc2aab8873b68d91a71d11c6/raw/fb4f1d6a7c89465f3 b39bc00eeff09af24b88f20/Redz%20hub.lua"))()
 
 local Window = redzlib:MakeWindow({
     Title = "โร้คพีช สคริปพม่าๆ",
@@ -80,7 +80,7 @@ Tab:AddToggle({Name = "Noclip (จำเป็น)", Default = true, Callback = 
 
 -- Auto TP Boss
 Tab:AddToggle({
-    Name = "Auto TP to Boss (ใต้พื้น 0,-10,18)",
+    Name = "วาปไปตีบอสออโต้",
     Default = false,
     Callback = function(state)
         _G.AutoTPBoss = state
