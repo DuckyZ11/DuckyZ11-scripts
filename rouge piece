@@ -10,8 +10,6 @@ _G.AutoM1Boss = false
 _G.Noclip = false
 _G.SelectedBoss = nil
 _G.SelectedWeapon = nil
--- RemoteEventName ถูกแทนที่ด้วยการเรียก Remotes.Serverside โดยตรง
--- local RemoteEventName = "AttackEvent" 
 
 local BossPaths = {
     ["Yuta"] = "Jujutsu Highschool.Boss.Yuta",
@@ -24,7 +22,8 @@ local BossPaths = {
     ["Shigaraki"] = "Rogue Town.Boss.Shikaraki",
     ["Aizen"] = "Huecomundo.Aizen",
     ["Mihawk"] = "Glacier Isle.Mihawk.Mihawk",
-    ["Sung Jin Woo"] = "Rogue Town [Backside].Boss.Sung Jin Woo"
+    ["Sung Jin Woo"] = "Rogue Town [Backside].Boss.Sung Jin Woo",
+    ["Silver Fang"] = "Rogue Town.Boss.Silver Fang"
 }
 
 -- UI Setup
@@ -44,7 +43,7 @@ local Tab = Window:MakeTab({"Boss Farm", "rbxassetid://7733960981"})
 Window:SelectTab(Tab)
 
 --------------------------------------------------------------------------------
--- CORE LOOPS (Noclip, Auto Equip)
+-- CORE LOOPS (Noclip, Auto Equip) & Speed Tool
 --------------------------------------------------------------------------------
 
 -- Noclip Logic
@@ -81,6 +80,50 @@ spawn(function()
         end
     end
 end)
+
+-- Speed Tool Logic (นำเข้ามา)
+local function SetupSpeedTool()
+    local boostspeed = 145 
+    local ospeed = 16 
+
+    local plrs = game:GetService("Players")
+    local plr = plrs.LocalPlayer
+    local char = plr.Character or plr.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid")
+    local bool = Instance.new("BoolValue")
+    bool.Value = false
+
+    local tool = Instance.new("Tool")
+    tool.Name = "speedboost"
+    tool.RequiresHandle = false
+    tool.Parent = game.Players.LocalPlayer.Backpack
+
+    tool.Equipped:Connect(function()
+        bool.Value = true
+    end)
+    tool.Unequipped:Connect(function()
+        bool.Value = false
+    end)
+
+    bool:GetPropertyChangedSignal("Value"):Connect(function()
+        if bool.Value then
+            hum.WalkSpeed = boostspeed
+        elseif not bool.Value then
+            hum.WalkSpeed = ospeed
+        end
+    end)
+
+    -- จัดการเมื่อตัวละครตาย (CharacterAdded)
+    plr.CharacterAdded:Connect(function(newChar)
+        hum = newChar:WaitForChild("Humanoid")
+        -- ตรวจสอบและตั้งค่าความเร็วเริ่มต้นใหม่
+        if not bool.Value then
+            hum.WalkSpeed = ospeed
+        end
+    end)
+end
+-- รันฟังก์ชัน Speed Tool เมื่อสคริปต์โหลด
+SetupSpeedTool()
 
 --------------------------------------------------------------------------------
 -- BOSS FARM TAB UI & LOGIC
@@ -145,7 +188,7 @@ end)
 -- Boss Dropdown
 Tab:AddDropdown({
     Name = "เลือกบอส",
-    Options = {"Yuta", "Sukuna", "Gojo", "David", "Akaza", "Tanjiro", "Kaneki", "Shigaraki", "Aizen", "Mihawk", "Sung Jin Woo"},
+    Options = {"Yuta", "Sukuna", "Gojo", "David", "Akaza", "Tanjiro", "Kaneki", "Shigaraki", "Aizen", "Mihawk", "Sung Jin Woo", "Silver Fang"},
     Default = "Yuta",
     Callback = function(v) _G.SelectedBoss = v end
 })
@@ -188,7 +231,7 @@ Tab:AddToggle({
     end
 })
 
--- Auto M1 Boss (แก้ไขให้ใช้ Remote Event ที่ถูกต้อง)
+-- Auto M1 Boss
 Tab:AddToggle({
     Name = "ตีรัว",
     Default = false,
@@ -199,8 +242,7 @@ Tab:AddToggle({
                 local remote = game:GetService("ReplicatedStorage").Remotes:FindFirstChild("Serverside")
                 
                 if not remote then 
-                    -- ถ้าหา Remote ไม่เจอ จะหยุดทำงานทันที
-                    warn("Error: Remotes.Serverside not found!")
+                    warn("Error: Remotes.Serverside not found! Auto M1 stopped.")
                     _G.AutoM1Boss = false 
                     return 
                 end
@@ -210,12 +252,11 @@ Tab:AddToggle({
                     pcall(function()
                         if not _G.SelectedWeapon then return end
                         
-                        -- โครงสร้าง args ถูกแปลงมาให้ใช้ตัวแปร _G.SelectedWeapon
                         local args = {
                             [1] = "Server",
                             [2] = "Sword",
                             [3] = "M1s",
-                            [4] = _G.SelectedWeapon, -- ใช้ชื่ออาวุธที่เลือก
+                            [4] = _G.SelectedWeapon, 
                             [5] = 4
                         }
 
@@ -226,3 +267,27 @@ Tab:AddToggle({
         end
     end
 })
+
+-- ปุ่ม รีเฟรชอาวุธ
+Tab:AddButton({"รีเฟรชอาวุธ", function()
+    UpdateWeapons()
+end})
+
+-- ปุ่ม ถือละวิ่งไว (Speed Tool)
+Tab:AddButton({"ถือละวิ่งไว", function()
+    local player = game.Players.LocalPlayer
+    local speedTool = player.Backpack:FindFirstChild("speedboost") or player.Character:FindFirstChild("speedboost")
+
+    if speedTool then
+        -- สั่ง Equip/Unequip โดยใช้คำสั่ง EquipTool หากตัวละครมีชีวิต
+        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+             -- ถ้าอยู่ในกระเป๋า ให้ Equip
+            if speedTool.Parent == player.Backpack then
+                player.Character.Humanoid:EquipTool(speedTool)
+            -- ถ้ากำลังถืออยู่ ให้ Unequip (ย้ายกลับไป Backpack)
+            elseif speedTool.Parent == player.Character then
+                player.Character.Humanoid:UnequipTool(speedTool)
+            end
+        end
+    end
+end})
