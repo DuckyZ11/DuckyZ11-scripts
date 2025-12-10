@@ -112,7 +112,7 @@ Tab:AddToggle({
 
 -- Auto M1 Boss
 Tab:AddToggle({
-    Name = "Auto M1 (สแปม Pattern 4)",
+    Name = "ตีรัวๆ",
     Default = false,
     Callback = FireServer("Server", "Sword", "M1s", _G.SelectedWeapon, 4)
         end
