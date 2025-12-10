@@ -1,0 +1,178 @@
+local redzlib = loadstring(game:HttpGet("https://gist.githubusercontent.com/MjContiga1/54c07e52fc2aab8873b68d91a71d11c6/raw/fb4f1d6a7c89465f3b39bc00eeff09af24b88f20/Redz%20hub.lua"))()
+
+local Window = redzlib:MakeWindow({
+    Title = "Sorcerer Farm",
+    SubTitle = "Mix Gay Na Hee",
+    SaveFolder = "SorcererFarm"
+})
+
+Window:AddMinimizeButton({
+    Button = { Image = "rbxassetid://139438145143663", BackgroundTransparency = 0, Size = UDim2.new(0,40,0,40) },
+    Corner = { CornerRadius = UDim.new(0,10) },
+    Position = UDim2.new(0,10,0,10)
+})
+
+local Tab = Window:MakeTab({"Farm", "rbxassetid://7733960981"})
+
+_G.AutoFarm = false
+_G.AutoBoss = false
+_G.SelectedWeapon = nil
+_G.SelectedBoss = nil
+_G.Noclip = false
+
+-- Noclip Loop
+spawn(function()
+    while task.wait(0.1) do
+        if _G.Noclip and game.Players.LocalPlayer.Character then
+            for _, part in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
+-- Dropdown อาวุธ (อัพเดทอัตโนมัติ)
+local WeaponDrop
+local function UpdateWeapons()
+    local weapons = {}
+    for _, tool in game.Players.LocalPlayer.Backpack:GetChildren() do
+        if tool:IsA("Tool") then
+            table.insert(weapons, tool.Name)
+        end
+    end
+    if #weapons == 0 then table.insert(weapons, "ไม่มีอาวุธ") end
+    
+    local default = weapons[1]
+    if not WeaponDrop then
+        WeaponDrop = Tab:AddDropdown({
+            Name = "เลือกอาวุธ",
+            Options = weapons,
+            Default = default,
+            Callback = function(val)
+                _G.SelectedWeapon = val ~= "ไม่มีอาวุธ" and val or nil
+            end
+        })
+    else
+        WeaponDrop:Refresh(weapons, default)
+    end
+    _G.SelectedWeapon = default ~= "ไม่มีอาวุธ" and default or nil
+end
+UpdateWeapons()
+spawn(function()
+    while task.wait(3) do UpdateWeapons() end
+end)
+
+-- Dropdown บอส (Fixed)
+local BossDrop = Tab:AddDropdown({
+    Name = "เลือกบอส",
+    Options = {"Yuta", "Sukuna", "Gojo", "David", "Silver Fang", "Shigaraki", "Aizen", "Tanjiro", "Sung Jin Woo"},
+    Default = "Yuta",
+    Callback = function(val)
+        _G.SelectedBoss = val
+    end
+})
+
+-- Toggle Noclip
+Tab:AddToggle({
+    Name = "Noclip (ทะลุพื้น)",
+    Default = false,
+    Callback = function(state)
+        _G.Noclip = state
+    end
+})
+
+-- Auto Equip Loop
+spawn(function()
+    while task.wait(0.5) do
+        if (_G.AutoFarm or _G.AutoBoss) and _G.SelectedWeapon then
+            local player = game.Players.LocalPlayer
+            local char = player.Character
+            if char and char:FindFirstChild("Humanoid") then
+                local tool = player.Backpack:FindFirstChild(_G.SelectedWeapon)
+                if tool then
+                    char.Humanoid:EquipTool(tool)
+                end
+            end
+        end
+    end
+end)
+
+-- Toggle Auto Farm Teacher (Safe - ระยะ 14 studs บนพื้น)
+Tab:AddToggle({
+    Name = "Auto Farm Sorcerer's Teacher (Safe Mode)",
+    Default = false,
+    Callback = function(state)
+        _G.AutoFarm = state
+        
+        spawn(function()
+            while _G.AutoFarm do
+                task.wait()
+                pcall(function()
+                    local player = game.Players.LocalPlayer
+                    local char = player.Character or player.CharacterAdded:Wait()
+                    local root = char:FindFirstChild("HumanoidRootPart")
+                    local hum = char:FindFirstChild("Humanoid")
+                    if not root or not hum or hum.Health <= 0 then return end
+
+                    for _, mob in workspace:GetDescendants() do
+                        if mob.Name == "Sorcerer's Teacher" and mob:FindFirstChild("Humanoid") 
+                        and mob.Humanoid.Health > 0 and mob:FindFirstChild("HumanoidRootPart") then
+                            
+                            root.CFrame = mob.HumanoidRootPart.CFrame * CFrame.new(0, 5, 14)
+                            
+                            if _G.SelectedWeapon then
+                                game:GetService("ReplicatedStorage").Remotes.Serverside:FireServer(
+                                    "Server", "Sword", "M1s", _G.SelectedWeapon, 4
+                                )
+                            end
+                        end
+                    end
+                end)
+            end
+        end)
+    end
+})
+
+-- Toggle Auto Boss (Aggressive - ระยะ 18 studs ใต้พื้น + Noclip)
+Tab:AddToggle({
+    Name = "Auto Farm Boss (Aggressive Mode)",
+    Default = false,
+    Callback = function(state)
+        _G.AutoBoss = state
+        _G.Noclip = state  -- Auto เปิด Noclip เมื่อฟาร์มบอส
+        
+        spawn(function()
+            while _G.AutoBoss do
+                task.wait()
+                pcall(function()
+                    local player = game.Players.LocalPlayer
+                    local char = player.Character or player.CharacterAdded:Wait()
+                    local root = char:FindFirstChild("HumanoidRootPart")
+                    local hum = char:FindFirstChild("Humanoid")
+                    if not root or not hum or hum.Health <= 0 or not _G.SelectedBoss then return end
+
+                    for _, mob in workspace:GetDescendants() do
+                        if mob.Name == _G.SelectedBoss and mob:FindFirstChild("Humanoid") 
+                        and mob.Humanoid.Health > 0 and mob:FindFirstChild("HumanoidRootPart") then
+                            
+                            -- วาปใต้พื้นทะลุ (0, -10, 18)
+                            root.CFrame = mob.HumanoidRootPart.CFrame * CFrame.new(0, -10, 18)
+                            
+                            if _G.SelectedWeapon then
+                                game:GetService("ReplicatedStorage").Remotes.Serverside:FireServer(
+                                    "Server", "Sword", "M1s", _G.SelectedWeapon, 4
+                                )
+                            end
+                            break  -- เจอบอสตัวแรกก็ตีเลย ไม่ loop หลายตัว
+                        end
+                    end
+                end)
+            end
+        end)
+    end
+})
+
+Tab:AddLabel("🟢 Teacher: Safe | Boss: Aggressive (Noclip Auto)")
+Tab:AddLabel("🔥 บอสตายไวทะลุพื้น ใช้แล้วโหดมากกก")
