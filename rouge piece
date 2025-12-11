@@ -10,6 +10,8 @@ _G.AutoM1Boss = false
 _G.Noclip = false
 _G.SelectedBoss = nil
 _G.SelectedWeapon = nil
+_G.LoopSpeedEnabled = false -- ตัวแปรใหม่สำหรับควบคุม Loop Speed
+_G.CustomWalkSpeed = 50     -- ค่าเริ่มต้นสำหรับ Loop Speed
 
 local BossPaths = {
     ["Yuta"] = "Jujutsu Highschool.Boss.Yuta",
@@ -23,7 +25,8 @@ local BossPaths = {
     ["Aizen"] = "Huecomundo.Aizen",
     ["Mihawk"] = "Glacier Isle.Mihawk.Mihawk",
     ["Sung Jin Woo"] = "Rogue Town [Backside].Boss.Sung Jin Woo",
-    ["Silver Fang"] = "Rogue Town.Boss.Silver Fang"
+    ["Silver Fang"] = "Rogue Town.Boss.Silver Fang",
+    ["Sorcerer's Teacher"] = "Jujutsu Highschool.Boss.Sorcerer's Teacher"
 }
 
 -- UI Setup
@@ -43,7 +46,7 @@ local Tab = Window:MakeTab({"Boss Farm", "rbxassetid://7733960981"})
 Window:SelectTab(Tab)
 
 --------------------------------------------------------------------------------
--- CORE LOOPS (Noclip, Auto Equip) & Speed Tool
+-- CORE LOOPS (Noclip, Auto Equip, Loop Speed)
 --------------------------------------------------------------------------------
 
 -- Noclip Logic
@@ -81,49 +84,26 @@ spawn(function()
     end
 end)
 
--- Speed Tool Logic (นำเข้ามา)
-local function SetupSpeedTool()
-    local boostspeed = 145 
-    local ospeed = 16 
-
-    local plrs = game:GetService("Players")
-    local plr = plrs.LocalPlayer
-    local char = plr.Character or plr.CharacterAdded:Wait()
-    local hum = char:WaitForChild("Humanoid")
-    local bool = Instance.new("BoolValue")
-    bool.Value = false
-
-    local tool = Instance.new("Tool")
-    tool.Name = "speedboost"
-    tool.RequiresHandle = false
-    tool.Parent = game.Players.LocalPlayer.Backpack
-
-    tool.Equipped:Connect(function()
-        bool.Value = true
-    end)
-    tool.Unequipped:Connect(function()
-        bool.Value = false
-    end)
-
-    bool:GetPropertyChangedSignal("Value"):Connect(function()
-        if bool.Value then
-            hum.WalkSpeed = boostspeed
-        elseif not bool.Value then
-            hum.WalkSpeed = ospeed
+-- Loop Speed Logic (แทนที่ Speed Tool)
+local OriginalSpeed = 16
+spawn(function()
+    local player = game.Players.LocalPlayer
+    while task.wait(0.1) do
+        if _G.LoopSpeedEnabled then
+            local char = player.Character
+            if char and char:FindFirstChildOfClass("Humanoid") then
+                -- ตั้งค่าความเร็วตามที่กำหนด
+                char.Humanoid.WalkSpeed = _G.CustomWalkSpeed
+            end
+        else
+            -- คืนค่าความเร็วเดิมเมื่อปิด
+            local char = player.Character
+            if char and char:FindFirstChildOfClass("Humanoid") and char.Humanoid.WalkSpeed ~= OriginalSpeed then
+                char.Humanoid.WalkSpeed = OriginalSpeed
+            end
         end
-    end)
-
-    -- จัดการเมื่อตัวละครตาย (CharacterAdded)
-    plr.CharacterAdded:Connect(function(newChar)
-        hum = newChar:WaitForChild("Humanoid")
-        -- ตรวจสอบและตั้งค่าความเร็วเริ่มต้นใหม่
-        if not bool.Value then
-            hum.WalkSpeed = ospeed
-        end
-    end)
-end
--- รันฟังก์ชัน Speed Tool เมื่อสคริปต์โหลด
-SetupSpeedTool()
+    end
+end)
 
 --------------------------------------------------------------------------------
 -- BOSS FARM TAB UI & LOGIC
@@ -188,7 +168,7 @@ end)
 -- Boss Dropdown
 Tab:AddDropdown({
     Name = "เลือกบอส",
-    Options = {"Yuta", "Sukuna", "Gojo", "David", "Akaza", "Tanjiro", "Kaneki", "Shigaraki", "Aizen", "Mihawk", "Sung Jin Woo", "Silver Fang"},
+    Options = {"Yuta", "Sukuna", "Gojo", "David", "Akaza", "Tanjiro", "Kaneki", "Shigaraki", "Aizen", "Mihawk", "Sung Jin Woo", "Silver Fang", "Sorcerer's Teacher"},
     Default = "Yuta",
     Callback = function(v) _G.SelectedBoss = v end
 })
@@ -273,21 +253,32 @@ Tab:AddButton({"รีเฟรชอาวุธ", function()
     UpdateWeapons()
 end})
 
--- ปุ่ม ถือละวิ่งไว (Speed Tool)
-Tab:AddButton({"ถือละวิ่งไว", function()
-    local player = game.Players.LocalPlayer
-    local speedTool = player.Backpack:FindFirstChild("speedboost") or player.Character:FindFirstChild("speedboost")
+-- --- NEW LOOP SPEED SECTION ---
+Tab:AddSection({"ตั้งค่าความเร็ว"})
 
-    if speedTool then
-        -- สั่ง Equip/Unequip โดยใช้คำสั่ง EquipTool หากตัวละครมีชีวิต
-        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-             -- ถ้าอยู่ในกระเป๋า ให้ Equip
-            if speedTool.Parent == player.Backpack then
-                player.Character.Humanoid:EquipTool(speedTool)
-            -- ถ้ากำลังถืออยู่ ให้ Unequip (ย้ายกลับไป Backpack)
-            elseif speedTool.Parent == player.Character then
-                player.Character.Humanoid:UnequipTool(speedTool)
-            end
+-- Loop Speed TextBox (สำหรับใส่ค่า)
+Tab:AddTextBox({
+    Name = "ค่าความเร็ว (WalkSpeed)",
+    Description = "ค่าเริ่มต้น: 50",
+    PlaceholderText = "ใส่ค่าตัวเลข (เช่น 100, 500)",
+    Default = tostring(_G.CustomWalkSpeed), -- ใช้ค่าเริ่มต้น
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num and num > OriginalSpeed then
+            _G.CustomWalkSpeed = num
+        elseif num and num <= OriginalSpeed then
+            -- ป้องกันการตั้งค่าความเร็วต่ำกว่าเดิม
+            _G.CustomWalkSpeed = OriginalSpeed + 1 
+            warn("Speed must be greater than " .. OriginalSpeed)
         end
     end
-end})
+})
+
+-- Loop Speed Toggle (สำหรับเปิด/ปิด)
+Tab:AddToggle({
+    Name = "เปิด Loop Speed",
+    Default = false,
+    Callback = function(state)
+        _G.LoopSpeedEnabled = state
+    end
+})
